@@ -14,7 +14,7 @@ const START_PATHS = [
 // 我的简历的三类文档
 const MINE = ['studio_home_base_kind', 'studio_home_target', 'studio_home_translation']
 
-// 专业模板（顺序与原站一致）
+// 专业模板
 const TEMPLATES = [
   { id: 'general', name: '通用', cat: 'ats' },
   { id: 'sidebar', name: '竖条', cat: 'experienced' },
@@ -39,7 +39,7 @@ const FILTERS = [
 ]
 
 function MiniPaper({ variant = 0 }: { variant?: number }) {
-  // 用纯 CSS 画出与原站一致的简历缩略图骨架
+  // 用纯 CSS 画出简历缩略图骨架
   return (
     <div className={`tpl-mini tf-${variant}`}>
       <div className="tpl-h" />

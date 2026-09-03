@@ -34,7 +34,7 @@
 | 主题系统 | ✅ | 浅色 / 深色 / 跟随系统，localStorage 持久化 |
 | 命令面板 | ✅ | `⌘K / Ctrl+K` 触发 |
 | 像素头像 | ✅ | 确定性算法（FNV-1a + mulberry32）替代 DiceBear |
-| 样式还原 | ✅ | 原站编译 CSS 像素级复用 + overrides.css 补充 |
+| 样式层 | ✅ | 基于提取的编译 CSS 构建主题，overrides.css 补充懒加载屏与原生控件 |
 
 **10 个页面**：
 

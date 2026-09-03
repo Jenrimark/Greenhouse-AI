@@ -18,7 +18,7 @@ interface SelectProps {
 }
 
 /**
- * 下拉选择：外观对齐原站 .sel（原生 select + 自定义箭头，保证可访问与可用）
+ * 下拉选择：.sel（原生 select + 自定义箭头，保证可访问与可用）
  */
 export function Select({ value, onChange, options, size = 'md', icon, className = '', ariaLabel, disabled }: SelectProps) {
   return (
