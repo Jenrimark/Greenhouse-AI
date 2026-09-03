@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Greenroom — AI 求职作战系统</title>
+    <meta
+      name="description"
+      content="Greenroom 是贯穿求职全程的 AI 工作台，帮助你发现更合适的岗位、准备更有说服力的材料，并通过模拟面试、实时辅助与复盘持续提升。"
+    />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#fbfcfb" />
+    <!-- 开机主题脚本：首屏绘制前根据本地偏好 + 系统主题设定 data-theme，避免深色用户闪白 -->
+    <script>
+      (function () {
+        try {
+          var pref = 'system'
+          var raw = localStorage.getItem('gr_prefs')
+          if (raw) {
+            var p = JSON.parse(raw)
+            if (p && (p.theme === 'dark' || p.theme === 'light' || p.theme === 'system')) pref = p.theme
+          }
+          var dark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', dark ? '#0c0f0e' : '#fbfcfb')
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light')
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
