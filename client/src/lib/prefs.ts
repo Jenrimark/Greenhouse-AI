@@ -1,4 +1,4 @@
-// 主题与偏好：与原站一致，持久化在 localStorage 的 gr_prefs 中
+// 主题与偏好：持久化在 localStorage 的 gr_prefs 中
 import { useEffect, useState } from 'react'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
