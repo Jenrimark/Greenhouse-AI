@@ -25,7 +25,7 @@ interface NavEntry {
   end?: boolean
 }
 
-// 主导航顺序与原站 Ro 数组一致
+// 主导航顺序
 const NAV: NavEntry[] = [
   { to: '/app', key: 'nav_command', icon: MessageCircle, end: true },
   { to: '/app/pipeline', key: 'nav_pipeline', icon: LayoutGrid },

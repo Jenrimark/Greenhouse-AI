@@ -4,7 +4,7 @@ import { TopBar } from './TopBar'
 
 /**
  * 应用外壳：左侧导航 rail + 右侧列（顶栏 + 内容面）
- * 类名与原站完全一致：.shell / .shell-east / .shell-east-body /
+ * 类名：.shell / .shell-east / .shell-east-body /
  * .shell-right / .shell-body / main.shell-surface
  */
 export function AppLayout() {

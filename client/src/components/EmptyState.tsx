@@ -12,7 +12,7 @@ interface EmptyStateProps {
 }
 
 /**
- * 空状态：插画 / 图标 + 标题 + 副文案 + 操作，类名对齐原站 .gr-empty*
+ * 空状态：插画 / 图标 + 标题 + 副文案 + 操作，类名 .gr-empty*
  */
 export function EmptyState({ artWebp, art, icon, title, sub, action }: EmptyStateProps) {
   return (

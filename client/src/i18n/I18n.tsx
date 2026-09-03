@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 import zh from './zh.json'
 import en from './en.json'
 
-// 与原站一致的文案字典（从线上构建产物中提取，共 2975 条中英对照）
+// 文案字典：共 2975 条中英对照
 const DICTS: Record<string, Record<string, string>> = { zh: zh as any, en: en as any }
 
 export type Lang = 'zh' | 'en'

@@ -20,7 +20,7 @@ const VARIANT_CLASS: Record<Variant, string> = {
 }
 
 /**
- * 通用按钮，类名与原站编译样式保持一致：.btn / .btn-{variant} / .btn-{size}
+ * 通用按钮：.btn / .btn-{variant} / .btn-{size}
  */
 export function Button({
   variant = 'secondary',
