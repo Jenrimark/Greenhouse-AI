@@ -4,6 +4,7 @@ import { AssistantScreen } from './screens/AssistantScreen'
 import { PipelineScreen } from './screens/PipelineScreen'
 import { DiscoverScreen } from './screens/DiscoverScreen'
 import { AtlasScreen } from './screens/AtlasScreen'
+import { RoleDetailScreen } from './screens/RoleDetailScreen'
 import { StudioScreen } from './screens/StudioScreen'
 import { StoriesScreen } from './screens/StoriesScreen'
 import { MockScreen } from './screens/MockScreen'
@@ -20,6 +21,7 @@ export function App() {
         <Route path="pipeline" element={<PipelineScreen />} />
         <Route path="discover" element={<DiscoverScreen />} />
         <Route path="atlas" element={<AtlasScreen />} />
+        <Route path="atlas/:roleId" element={<RoleDetailScreen />} />
         <Route path="studio" element={<StudioScreen />} />
         <Route path="stories" element={<StoriesScreen />} />
         <Route path="mock" element={<MockScreen />} />
