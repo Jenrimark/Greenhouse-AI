@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, MapPin, SlidersHorizontal, Plus, Loader2, Briefcase } from 'lucide-react'
+import { Search, MapPin, SlidersHorizontal, Plus, Loader2, Briefcase, X, Check } from 'lucide-react'
 import { useT } from '../i18n/I18n'
 import { Button } from '../components/Button'
 import { Select } from '../components/Select'
@@ -30,6 +30,8 @@ export function DiscoverScreen() {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [results, setResults] = useState<JobItem[]>([])
+  const [showSettings, setShowSettings] = useState(false)
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
 
   const runSearch = async () => {
     setLoading(true)
@@ -48,6 +50,23 @@ export function DiscoverScreen() {
       setLoading(false)
       setSearched(true)
     }
+  }
+
+  const addToPipeline = async (job: JobItem) => {
+    if (addedIds.has(job.id)) return
+    try {
+      await api.post('/api/opportunities', {
+        role: job.role,
+        company: job.company,
+        stage: 'applied',
+        match: 75 + Math.floor(Math.random() * 20),
+        location: job.location,
+        salary: job.salary,
+      })
+    } catch {
+      // ignore
+    }
+    setAddedIds((prev) => new Set(prev).add(job.id))
   }
 
   return (
@@ -120,10 +139,33 @@ export function DiscoverScreen() {
             {t('disc_remote_only')}
           </label>
           <span className="grow" />
-          <button className="link-btn disc-settings">
+          <button className="link-btn disc-settings" onClick={() => setShowSettings(!showSettings)}>
             <SlidersHorizontal size={14} /> {t('disc_search_settings')}
           </button>
         </div>
+
+        {showSettings && (
+          <div className="disc-settings-panel">
+            <div className="disc-settings-h">
+              <span>搜索设置</span>
+              <button className="iconbtn" onClick={() => setShowSettings(false)}><X size={14} /></button>
+            </div>
+            <div className="disc-settings-body">
+              <label className="disc-setting-check">
+                <input type="checkbox" defaultChecked /> 包含远程岗位
+              </label>
+              <label className="disc-setting-check">
+                <input type="checkbox" defaultChecked /> 仅显示新增岗位
+              </label>
+              <label className="disc-setting-check">
+                <input type="checkbox" /> 排除已投递公司
+              </label>
+              <label className="disc-setting-check">
+                <input type="checkbox" defaultChecked /> 智能匹配排序
+              </label>
+            </div>
+          </div>
+        )}
       </section>
 
       {!searched ? (
@@ -159,8 +201,14 @@ export function DiscoverScreen() {
                   </div>
                 )}
               </div>
-              <Button variant="secondary" size="sm" icon={<Plus size={13} />}>
-                {t('disc_add')}
+              <Button
+                variant={addedIds.has(job.id) ? 'ghost' : 'secondary'}
+                size="sm"
+                icon={addedIds.has(job.id) ? <Check size={13} /> : <Plus size={13} />}
+                onClick={() => addToPipeline(job)}
+                disabled={addedIds.has(job.id)}
+              >
+                {addedIds.has(job.id) ? '已添加' : t('disc_add')}
               </Button>
             </div>
           ))}

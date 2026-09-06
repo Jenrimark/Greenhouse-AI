@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Search, X, Flame, Sparkles } from 'lucide-react'
+import { Search, X, Flame, Sparkles, Layers } from 'lucide-react'
 import { useT, useI18n } from '../i18n/I18n'
-import { Select } from '../components/Select'
+import { GridSelect, INDUSTRY_ICONS } from '../components/GridSelect'
 import { PixelAvatar } from '../components/PixelAvatar'
+import { FlowMapView } from '../components/FlowMapView'
+import { IntelPanel } from '../components/IntelPanel'
 import catalog from '../data/catalog.json'
 
 const INDUSTRIES = (catalog as any).CATALOG_INDUSTRIES as any[]
@@ -30,10 +32,10 @@ function RoleMarks({ role }: { role: any }) {
   )
 }
 
-function RoleCard({ role, showIndustry }: { role: any; showIndustry?: boolean }) {
+function RoleCard({ role, showIndustry, onSelect }: { role: any; showIndustry?: boolean; onSelect: (id: string) => void }) {
   const { lang } = useI18n()
   return (
-    <button className="axp-rc" type="button">
+    <button className="axp-rc" type="button" onClick={() => onSelect(role.id)}>
       <span className="axp-rc-av">
         <PixelAvatar seed={role.id} size={38} />
       </span>
@@ -58,6 +60,7 @@ export function AtlasScreen() {
   const [track, setTrack] = useState('internet')
   const [view, setView] = useState<View>('catalog')
   const [q, setQ] = useState('')
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null)
 
   const industry = useMemo(() => INDUSTRIES.find((i) => i.id === industryId) ?? INDUSTRIES[0], [industryId])
 
@@ -66,7 +69,6 @@ export function AtlasScreen() {
     [industry, lang],
   )
 
-  // 全局搜索：按名称 / 别称匹配
   const searchResults = useMemo(() => {
     const kw = q.trim().toLowerCase()
     if (!kw) return []
@@ -79,115 +81,111 @@ export function AtlasScreen() {
     }).slice(0, 60)
   }, [q, lang])
 
+  const handleSelectRole = (id: string) => {
+    setSelectedRoleId(id)
+  }
+
   return (
-    <div className="page atlas">
-      <div className="axp-topbar">
-        <div className="field axp-search">
-          <Search size={16} />
-          <input
-            value={q}
-            placeholder={t('axp_search_placeholder')}
-            onChange={(e) => setQ(e.target.value)}
-            aria-label={t('axp_search_label')}
+    <div className={`page atlas ${selectedRoleId ? 'has-intel' : ''}`}>
+      <div className="axp-main">
+        <div className="axp-topbar">
+          <div className="field axp-search">
+            <Search size={16} />
+            <input
+              value={q}
+              placeholder={t('axp_search_placeholder')}
+              onChange={(e) => setQ(e.target.value)}
+              aria-label={t('axp_search_label')}
+            />
+            {q && (
+              <button className="axp-search-clear iconbtn" onClick={() => setQ('')} aria-label={t('clear')}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <GridSelect
+            value={industryId}
+            onChange={setIndustryId}
+            icon={INDUSTRY_ICONS[industryId]}
+            options={INDUSTRIES.map((i) => ({
+              value: i.id,
+              label: i.name[lang],
+              count: i.roles.length,
+              icon: INDUSTRY_ICONS[i.id],
+            }))}
           />
-          {q && (
-            <button className="axp-search-clear iconbtn" onClick={() => setQ('')} aria-label={t('clear')}>
-              <X size={14} />
+          <GridSelect
+            value={track}
+            onChange={setTrack}
+            icon={<Layers size={15} />}
+            options={trackOptions.map((o) => ({ value: o.value, label: o.label }))}
+          />
+
+          <span className="grow" />
+          <div className="seg axp-viewtoggle">
+            <button className={view === 'catalog' ? 'is-active' : ''} onClick={() => setView('catalog')}>
+              {t('axp_seg_catalog')}
             </button>
-          )}
+            <button className={view === 'flow' ? 'is-active' : ''} onClick={() => setView('flow')}>
+              {t('axp_seg_flow')}
+            </button>
+          </div>
         </div>
 
-        <Select
-          value={industryId}
-          onChange={setIndustryId}
-          options={INDUSTRIES.map((i) => ({
-            value: i.id,
-            label: `${i.name[lang]} ${i.roles.length}`,
-          }))}
-        />
-        <Select value={track} onChange={setTrack} options={trackOptions} />
-
-        <span className="grow" />
-        <div className="seg axp-viewtoggle">
-          <button className={view === 'catalog' ? 'is-active' : ''} onClick={() => setView('catalog')}>
-            {t('axp_seg_catalog')}
-          </button>
-          <button className={view === 'flow' ? 'is-active' : ''} onClick={() => setView('flow')}>
-            {t('axp_seg_flow')}
-          </button>
-        </div>
-      </div>
-
-      {q.trim() ? (
-        <section className="axp-fam">
-          <div className="axp-fam-h">
-            <span className="axp-fam-n">
-              {t('axp_search_label')} · {searchResults.length}
-            </span>
-          </div>
-          <div className="axp-rolegrid">
-            {searchResults.map((r) => (
-              <RoleCard key={r.id} role={r} showIndustry />
-            ))}
-          </div>
-        </section>
-      ) : view === 'catalog' ? (
-        <>
-          <p className="axp-gistline">{industry.gist[lang]}</p>
-          {industry.families.map((fam: any) => {
-            const roles = industry.roles.filter((r: any) => r.familyId === fam.id)
-            if (!roles.length) return null
-            return (
-              <section className="axp-fam" key={fam.id}>
-                <div className="axp-fam-h">
-                  <span className="axp-fam-n">{fam.name[lang]}</span>
-                  <span className="axp-fam-g">{fam.gist[lang]}</span>
-                  {fam.group && <span className="axp-fam-grp">{fam.group[lang]}</span>}
-                </div>
-                <div className="axp-rolegrid">
-                  {roles.map((r: any) => (
-                    <RoleCard key={r.id} role={r} />
-                  ))}
-                </div>
-              </section>
-            )
-          })}
-        </>
-      ) : (
-        <FlowView industry={industry} track={track} />
-      )}
-    </div>
-  )
-}
-
-// 运转图：按职级阶梯展示（数据来自 ladders.json）
-function FlowView({ industry, track }: { industry: any; track: string }) {
-  const { lang } = useI18n()
-  const roles = industry.roles.filter((r: any) => !track || industry.flowTracks.some((f: any) => f.id === track))
-  const families = industry.families
-  return (
-    <div className="axp-ladder-wrap">
-      {families.map((fam: any) => {
-        const list = roles.filter((r: any) => r.familyId === fam.id).slice(0, 6)
-        if (!list.length) return null
-        return (
-          <div className="axp-lane" key={fam.id}>
-            <div className="axp-lane-h">
-              <span className="axp-lvl-name">{fam.name[lang]}</span>
-              <span className="axp-lane-desc faint">{fam.gist[lang]}</span>
+        {q.trim() ? (
+          <section className="axp-fam">
+            <div className="axp-fam-h">
+              <span className="axp-fam-n">
+                {t('axp_search_label')} · {searchResults.length}
+              </span>
             </div>
-            <div className="axp-lvl-role-list">
-              {list.map((r: any, i: number) => (
-                <div className="axp-lvl-role" key={r.id}>
-                  <span className="axp-step-n num">L{i + 1}</span>
-                  <PixelAvatar seed={r.id} size={30} />
-                  <span>{r.name[lang]}</span>
-                </div>
+            <div className="axp-rolegrid">
+              {searchResults.map((r) => (
+                <RoleCard key={r.id} role={r} showIndustry onSelect={handleSelectRole} />
               ))}
             </div>
-          </div>
-        )
-      })}
+          </section>
+        ) : view === 'catalog' ? (
+          <>
+            <p className="axp-gistline">{industry.gist[lang]}</p>
+            {industry.families.map((fam: any) => {
+              const roles = industry.roles.filter((r: any) => r.familyId === fam.id)
+              if (!roles.length) return null
+              return (
+                <section className="axp-fam" key={fam.id}>
+                  <div className="axp-fam-h">
+                    <span className="axp-fam-n">{fam.name[lang]}</span>
+                    <span className="axp-fam-g">{fam.gist[lang]}</span>
+                    {fam.group && <span className="axp-fam-grp">{fam.group[lang]}</span>}
+                  </div>
+                  <div className="axp-rolegrid">
+                    {roles.map((r: any) => (
+                      <RoleCard key={r.id} role={r} onSelect={handleSelectRole} />
+                    ))}
+                  </div>
+                </section>
+              )
+            })}
+          </>
+        ) : (
+          <FlowMapView
+            industryId={industryId}
+            selectedRoleId={selectedRoleId}
+            onSelectRole={handleSelectRole}
+            onBack={() => setView('catalog')}
+          />
+        )}
+      </div>
+
+      {selectedRoleId && (
+        <IntelPanel
+          roleId={selectedRoleId}
+          industryId={industryId}
+          onSelectRole={handleSelectRole}
+          onClose={() => setSelectedRoleId(null)}
+        />
+      )}
     </div>
   )
 }

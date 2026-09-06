@@ -7,3 +7,7 @@ server/data/*.bak
 .env
 .env.local
 backup/
+
+# 误入仓库的本地安装包
+*.dmg
+*.zip
