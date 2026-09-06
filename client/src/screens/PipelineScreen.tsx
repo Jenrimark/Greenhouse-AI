@@ -52,8 +52,8 @@ export function PipelineScreen() {
 
   const load = () =>
     api
-      .get<{ items: Opportunity[] }>('/api/opportunities')
-      .then((r) => setItems(r.items ?? []))
+      .get<{ data: { items: Opportunity[] } }>('/api/opportunities')
+      .then((r) => setItems(r.data.items ?? []))
       .catch(() => setItems([]))
 
   useEffect(() => {

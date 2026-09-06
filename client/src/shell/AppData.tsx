@@ -5,8 +5,11 @@ export interface Me {
   id: string
   name: string
   handle: string
-  avatarUrl?: string
-  email?: string
+  email: string
+  avatarUrl?: string | null
+  credits: number
+  createdAt?: string
+  updatedAt?: string
 }
 
 interface AppData {
@@ -25,6 +28,19 @@ const AppDataContext = createContext<AppData>({
   refresh: () => {},
 })
 
+function toMe(user: any): Me {
+  return {
+    id: user.id,
+    name: user.name,
+    handle: user.handle ?? '',
+    email: user.email ?? '',
+    avatarUrl: user.avatar_url,
+    credits: user.credits ?? 0,
+    createdAt: user.created_at,
+    updatedAt: user.updated_at,
+  }
+}
+
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Me | null>(null)
   const [credits, setCredits] = useState(0)
@@ -35,14 +51,23 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let alive = true
     Promise.all([
-      api.get<Me>('/api/me').catch(() => null),
-      api.get<{ credits: number }>('/api/credits').catch(() => ({ credits: 0 })),
-      api.get<{ due: number }>('/api/opportunities/summary').catch(() => ({ due: 0 })),
+      api
+        .get<{ data: { user: any } }>('/api/account/me')
+        .then((r) => toMe(r.data.user))
+        .catch(() => null),
+      api
+        .get<{ data: { credits: number } }>('/api/account/credits')
+        .then((r) => r.data.credits)
+        .catch(() => 0),
+      api
+        .get<{ data: { due: number } }>('/api/opportunities/summary')
+        .then((r) => r.data.due ?? 0)
+        .catch(() => 0),
     ]).then(([m, c, s]) => {
       if (!alive) return
       setMe(m)
-      setCredits(c?.credits ?? 0)
-      setDueCount(s?.due ?? 0)
+      setCredits(c ?? 0)
+      setDueCount(s ?? 0)
       setLoading(false)
     })
     return () => {

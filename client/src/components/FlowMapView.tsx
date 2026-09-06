@@ -1,11 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useI18n } from '../i18n/I18n'
 import { PixelAvatar } from './PixelAvatar'
-import flowMaps from '../data/flow-maps.json'
-import flowNodeMap from '../data/flow-node-map.json'
-import catalog from '../data/catalog.json'
-
-const ALL_ROLES = (catalog as any).ALL_CAT_ROLES as any[]
+import { useLazyData } from '../lib/lazyData'
 
 // 8 环节圆形布局角度（从顶部开始顺时针）
 const SLOT_ANGLES = [-90, -45, 0, 45, 90, 135, 180, -135]
@@ -19,10 +15,16 @@ interface FlowMapViewProps {
 
 export function FlowMapView({ industryId, selectedRoleId, onSelectRole, onBack }: FlowMapViewProps) {
   const { lang } = useI18n()
+  const { data: ds, ready } = useLazyData(['catalog', 'flow-maps', 'flow-node-map'])
   const [zoom, setZoom] = useState(1)
 
-  const flowMap = (flowMaps as any)[industryId]
-  const nodeMap = (flowNodeMap as any)[industryId] ?? {}
+  const catalog = ds.catalog as any
+  const ALL_ROLES = ready ? (catalog?.ALL_CAT_ROLES as any[]) ?? [] : []
+  const flowMaps = ds['flow-maps'] as any
+  const flowNodeMap = ds['flow-node-map'] as any
+
+  const flowMap = ready ? (flowMaps?.[industryId] as any) : undefined
+  const nodeMap = ready ? (flowNodeMap?.[industryId] ?? {}) : {}
 
   // 旧 id -> 新 id 映射
   const oldToNew = useMemo(() => {
@@ -42,8 +44,8 @@ export function FlowMapView({ industryId, selectedRoleId, onSelectRole, onBack }
     return map
   }, [nodeMap])
 
-  if (!flowMap) {
-    return <div className="axp-flow-empty">该行业暂无运转图</div>
+  if (!ready || !flowMap) {
+    return <div className="axp-flow-empty">{ready ? '该行业暂无运转图' : '数据加载中…'}</div>
   }
 
   const slots = flowMap.slots ?? []
