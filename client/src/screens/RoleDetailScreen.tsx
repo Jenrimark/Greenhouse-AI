@@ -4,17 +4,7 @@ import { ArrowLeft, ChevronRight, Flame, Sparkles, Table2, Sparkles as SparklesI
 import { useT, useI18n } from '../i18n/I18n'
 import { PixelAvatar } from '../components/PixelAvatar'
 import { Button } from '../components/Button'
-import catalog from '../data/catalog.json'
-import ladders from '../data/ladders.json'
-import companyLevels from '../data/company-levels.json'
-import interviewFocus from '../data/interview-focus.json'
-import flowMaps from '../data/flow-maps.json'
-import flowNodeMap from '../data/flow-node-map.json'
-import levelFocus from '../data/level-focus.json'
-
-const ALL_ROLES = (catalog as any).ALL_CAT_ROLES as any[]
-const INDUSTRIES = (catalog as any).CATALOG_INDUSTRIES as any[]
-const LADDER = (ladders as any).default ?? ladders as any[]
+import { useLazyData } from '../lib/lazyData'
 
 // 中国公司列表（前10个）
 const CN_COMPANIES = ['alibaba', 'bytedance', 'tencent', 'meituan', 'baidu', 'jd', 'netease', 'kuaishou', 'didi', 'xiaomi']
@@ -56,17 +46,29 @@ export function RoleDetailScreen() {
   const navigate = useNavigate()
   const t = useT()
   const { lang } = useI18n()
+  const { data: ds, ready } = useLazyData(['catalog', 'ladders', 'company-levels', 'interview-focus', 'flow-maps', 'flow-node-map', 'level-focus'])
   const [levelIdx, setLevelIdx] = useState(2) // 默认高级 ic3
   const [showFullMatrix, setShowFullMatrix] = useState(false)
 
-  const role = useMemo(() => ALL_ROLES.find((r) => r.id === roleId), [roleId])
-  const industry = useMemo(() => (role ? INDUSTRIES.find((i) => i.id === role.industryId) : null), [role])
+  const catalog = ds.catalog as any
+  const ALL_ROLES = ready ? (catalog?.ALL_CAT_ROLES as any[]) ?? [] : []
+  const INDUSTRIES = ready ? (catalog?.CATALOG_INDUSTRIES as any[]) ?? [] : []
+  const ladders = ds.ladders as any
+  const LADDER = ready ? ((ladders as any)?.default ?? ladders ?? []) : []
+  const companyLevels = ds['company-levels'] as any
+  const interviewFocus = ds['interview-focus'] as any
+  const flowMaps = ds['flow-maps'] as any
+  const flowNodeMap = ds['flow-node-map'] as any
+  const levelFocus = ds['level-focus'] as any
+
+  const role = useMemo(() => ALL_ROLES.find((r) => r.id === roleId), [ALL_ROLES, roleId])
+  const industry = useMemo(() => (role ? INDUSTRIES.find((i) => i.id === role.industryId) : null), [INDUSTRIES, role])
 
   // 职级阶梯（前4级：初级/中级/高级/资深）
   const levels = useMemo(() => {
     const arr = Array.isArray(LADDER) ? LADDER : Object.values(LADDER)
     return arr.filter((l: any) => l.track === 'ic' && l.ordinal <= 4).sort((a: any, b: any) => a.ordinal - b.ordinal)
-  }, [])
+  }, [LADDER])
 
   const currentLevel = levels[levelIdx]
 
@@ -161,6 +163,14 @@ export function RoleDetailScreen() {
 
   const cnCompanies = levelCompanies.filter((c: any) => CN_COMPANIES.includes(c.company))
   const intlCompanies = levelCompanies.filter((c: any) => !CN_COMPANIES.includes(c.company))
+
+  if (!ready) {
+    return (
+      <div className="page">
+        <p>数据加载中…</p>
+      </div>
+    )
+  }
 
   if (!role) {
     return (
