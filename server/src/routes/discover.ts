@@ -1,7 +1,7 @@
 // 岗位检索路由（演示数据；阶段 2 由 AI 工具层复用 service）
 import { Router } from 'express'
 import { z } from 'zod'
-import { id } from '../db.js'
+import { id } from '../lib/id.js'
 import { validateBody } from '../middleware/validate.js'
 
 const router = Router()

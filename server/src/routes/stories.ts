@@ -1,16 +1,17 @@
-// 经历库路由（阶段 1 A 任务：演示版；F 任务按 user_id 隔离落 PostgreSQL）
+// 经历库路由（F：user_id 隔离，业务逻辑在 service 层）
 import { Router } from 'express'
 import { z } from 'zod'
-import { db, save, id } from '../db.js'
-import { ApiError } from '../middleware/error.js'
-import { validateBody } from '../middleware/validate.js'
+import { requireAuth } from '../middleware/requireAuth.js'
+import { param, validateBody } from '../middleware/validate.js'
+import { asyncHandler } from '../middleware/asyncHandler.js'
+import { createStory, deleteStory, listStories } from '../services/stories.js'
 
 const router = Router()
+router.use(requireAuth)
 
-router.get('/', (_req, res) => {
-  const items = [...db().stories].sort((a, b) => (String(b.start || '')).localeCompare(String(a.start || '')))
-  res.json({ items })
-})
+router.get('/', asyncHandler(async (req, res) => {
+  res.json({ data: { items: await listStories(req.user!.id) } })
+}))
 
 const createSchema = z.object({
   title: z.string().trim().min(1, '经历标题不能为空').max(200),
@@ -21,22 +22,13 @@ const createSchema = z.object({
   tags: z.array(z.string().max(30)).max(20).optional().default([]),
 })
 
-router.post('/', validateBody(createSchema), (req, res) => {
-  const { title, org, start, end, bullets, tags } = req.body
-  const state = db()
-  const entry = { id: id('story'), title, org, start, end, bullets, tags }
-  state.stories.unshift(entry)
-  save()
-  res.status(201).json(entry)
-})
+router.post('/', validateBody(createSchema), asyncHandler(async (req, res) => {
+  res.status(201).json({ data: await createStory(req.user!.id, req.body) })
+}))
 
-router.delete('/:id', (req, res) => {
-  const state = db()
-  const before = state.stories.length
-  state.stories = state.stories.filter((s) => s.id !== req.params.id)
-  if (state.stories.length === before) throw ApiError.notFound('经历不存在')
-  save()
+router.delete('/:id', asyncHandler(async (req, res) => {
+  await deleteStory(req.user!.id, param(req, 'id'))
   res.status(204).end()
-})
+}))
 
 export default router
