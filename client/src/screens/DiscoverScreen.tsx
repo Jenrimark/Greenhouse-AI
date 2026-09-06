@@ -36,14 +36,14 @@ export function DiscoverScreen() {
   const runSearch = async () => {
     setLoading(true)
     try {
-      const r = await api.post<{ items: JobItem[] }>('/api/job-search', {
+      const r = await api.post<{ data: { items: JobItem[] } }>('/api/job-search', {
         keywords: kw,
         city,
         years,
         salary,
         remoteOnly,
       })
-      setResults(r.items ?? [])
+      setResults(r.data.items ?? [])
     } catch {
       setResults([])
     } finally {

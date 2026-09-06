@@ -27,12 +27,12 @@ export function AddRoleDialog({ onClose, onCreated }: Props) {
     setSaving(true)
     setError('')
     try {
-      const res = await api.post<{ id: string }>('/api/opportunities', {
+      const res = await api.post<{ data: { id: string } }>('/api/opportunities', {
         company: company.trim(),
         role: role.trim(),
         jd: jd.trim(),
       })
-      onCreated(res.id)
+      onCreated(res.data.id)
     } catch (e: any) {
       setError(e?.message || 'error')
       setSaving(false)

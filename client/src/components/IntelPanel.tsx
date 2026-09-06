@@ -4,13 +4,7 @@ import { Flame, Sparkles, ChevronRight, Sparkles as SparklesIcon, Loader2 } from
 import { useT, useI18n } from '../i18n/I18n'
 import { PixelAvatar } from './PixelAvatar'
 import { Button } from './Button'
-import catalog from '../data/catalog.json'
-import flowMaps from '../data/flow-maps.json'
-import flowNodeMap from '../data/flow-node-map.json'
-import interviewFocus from '../data/interview-focus.json'
-import levelFocus from '../data/level-focus.json'
-
-const ALL_ROLES = (catalog as any).ALL_CAT_ROLES as any[]
+import { useLazyData } from '../lib/lazyData'
 
 // interview-focus 的行业分组映射
 const INTERVIEW_GROUP: Record<string, string> = {
@@ -29,12 +23,20 @@ export function IntelPanel({ roleId, industryId, onSelectRole, onClose }: IntelP
   const t = useT()
   const { lang } = useI18n()
   const navigate = useNavigate()
+  const { data: ds, ready } = useLazyData(['catalog', 'flow-maps', 'flow-node-map', 'interview-focus', 'level-focus'])
   const [generating, setGenerating] = useState(false)
   const [planGenerated, setPlanGenerated] = useState(false)
 
-  const role = useMemo(() => ALL_ROLES.find((r: any) => r.id === roleId), [roleId])
-  const flowMap = (flowMaps as any)[industryId]
-  const nodeMap = (flowNodeMap as any)[industryId] ?? {}
+  const catalog = ds.catalog as any
+  const ALL_ROLES = ready ? (catalog?.ALL_CAT_ROLES as any[]) ?? [] : []
+  const flowMaps = ds['flow-maps'] as any
+  const flowNodeMap = ds['flow-node-map'] as any
+  const interviewFocus = ds['interview-focus'] as any
+  const levelFocus = ds['level-focus'] as any
+
+  const role = useMemo(() => ALL_ROLES.find((r: any) => r.id === roleId), [ALL_ROLES, roleId])
+  const flowMap = ready ? (flowMaps?.[industryId] as any) : undefined
+  const nodeMap = ready ? (flowNodeMap?.[industryId] ?? {}) : {}
 
   // 旧 id <-> 新 id 映射
   const oldToNew = useMemo(() => {
@@ -102,7 +104,7 @@ export function IntelPanel({ roleId, industryId, onSelectRole, onClose }: IntelP
       .map((m: any) => ({ ...m, from: oldToNew[m.from] ?? m.from, to: oldToNew[m.to] ?? m.to }))
   }, [flowMap, roleId, oldToNew])
 
-  if (!role) return null
+  if (!ready || !role) return null
 
   const roleOld = flowMap?.roles?.find((r: any) => r.id === selectedOldId)
   const socCode = roleOld?.soc ?? '—'

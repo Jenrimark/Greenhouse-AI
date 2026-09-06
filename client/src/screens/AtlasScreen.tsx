@@ -5,10 +5,7 @@ import { GridSelect, INDUSTRY_ICONS } from '../components/GridSelect'
 import { PixelAvatar } from '../components/PixelAvatar'
 import { FlowMapView } from '../components/FlowMapView'
 import { IntelPanel } from '../components/IntelPanel'
-import catalog from '../data/catalog.json'
-
-const INDUSTRIES = (catalog as any).CATALOG_INDUSTRIES as any[]
-const ALL_ROLES = (catalog as any).ALL_CAT_ROLES as any[]
+import { useLazyData } from '../lib/lazyData'
 
 type View = 'catalog' | 'flow'
 
@@ -56,13 +53,18 @@ function RoleCard({ role, showIndustry, onSelect }: { role: any; showIndustry?: 
 export function AtlasScreen() {
   const t = useT()
   const { lang } = useI18n()
+  const { data: ds, ready } = useLazyData(['catalog'])
   const [industryId, setIndustryId] = useState('internet')
   const [track, setTrack] = useState('internet')
   const [view, setView] = useState<View>('catalog')
   const [q, setQ] = useState('')
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null)
 
-  const industry = useMemo(() => INDUSTRIES.find((i) => i.id === industryId) ?? INDUSTRIES[0], [industryId])
+  const catalog = ds.catalog as any
+  const INDUSTRIES = ready ? (catalog?.CATALOG_INDUSTRIES as any[]) ?? [] : []
+  const ALL_ROLES = ready ? (catalog?.ALL_CAT_ROLES as any[]) ?? [] : []
+
+  const industry = useMemo(() => INDUSTRIES.find((i) => i.id === industryId) ?? INDUSTRIES[0], [INDUSTRIES, industryId])
 
   const trackOptions = useMemo(
     () => industry.flowTracks.map((f: any) => ({ value: f.id, label: f.label[lang] })),
@@ -83,6 +85,14 @@ export function AtlasScreen() {
 
   const handleSelectRole = (id: string) => {
     setSelectedRoleId(id)
+  }
+
+  if (!ready || !industry) {
+    return (
+      <div className="page atlas">
+        <div className="axp-main axp-loading">数据加载中…</div>
+      </div>
+    )
   }
 
   return (

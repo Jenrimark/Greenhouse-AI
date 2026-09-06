@@ -19,7 +19,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     let msg = `请求失败 (${res.status})`
     try {
       const data = await res.json()
-      msg = data?.error || msg
+      msg = data?.error?.message || data?.error || msg
     } catch {
       /* ignore */
     }

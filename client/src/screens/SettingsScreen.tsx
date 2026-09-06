@@ -63,7 +63,7 @@ export function SettingsScreen() {
 
   const saveName = async () => {
     try {
-      await api.patch('/api/me', { name })
+      await api.patch('/api/account/me', { name })
       setSaved(true)
       setTimeout(() => setSaved(false), 1800)
     } catch {
@@ -80,8 +80,13 @@ export function SettingsScreen() {
     }, 1500)
   }
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     if (confirm('确定要退出登录吗？')) {
+      try {
+        await api.post('/api/auth/logout')
+      } catch {
+        /* ignore */
+      }
       navigate('/login')
     }
   }
@@ -90,9 +95,16 @@ export function SettingsScreen() {
     setShowDeleteConfirm(true)
   }
 
-  const confirmDelete = () => {
-    alert('云端数据已删除（mock）')
-    setShowDeleteConfirm(false)
+  const confirmDelete = async () => {
+    try {
+      await api.del('/api/account/me')
+      alert('账号与云端数据已删除')
+      navigate('/login')
+    } catch (e: any) {
+      alert(e?.message || '删除失败，请稍后再试')
+    } finally {
+      setShowDeleteConfirm(false)
+    }
   }
 
   const handleUpgrade = () => {
