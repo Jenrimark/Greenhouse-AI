@@ -13,6 +13,7 @@ import authRoutes from './routes/auth.js'
 import accountRoutes from './routes/account.js'
 import opportunityRoutes from './routes/opportunities.js'
 import storyRoutes from './routes/stories.js'
+import resumeRoutes from './routes/resumes.js'
 import discoverRoutes from './routes/discover.js'
 import aiRoutes from './routes/ai.js'
 
@@ -38,9 +39,10 @@ export function createApp(): express.Express {
 
   // 业务 API
   app.use('/api/auth', authRoutes)
-  app.use('/api', accountRoutes)
+  app.use('/api/account', accountRoutes)
   app.use('/api/opportunities', opportunityRoutes)
   app.use('/api/stories', storyRoutes)
+  app.use('/api/resumes', resumeRoutes)
   app.use('/api/job-search', discoverRoutes)
   app.use('/api', aiRoutes)
 
