@@ -110,7 +110,7 @@ export function AppRail() {
       </nav>
 
       <div className="rail-foot">
-        <button className="rail-help" aria-label={t('help_open')}>
+        <button className="rail-help" aria-label={t('help_open')} onClick={() => alert('帮助中心：\n\n• 助手：与 AI 对话，获取求职建议\n• 机会管线：管理投递进度\n• 找岗位：搜索和筛选岗位\n• 岗位地图：查看岗位上下游关系\n• 简历工作室：创建和优化简历\n• 经历库：管理项目经历\n• 模拟面试：AI 面试练习\n• 实时助手：面试实时提词\n\n快捷键：⌘K 搜索 / ⌘J AI 助手')}>
           <span className="rail-slot">
             <CircleHelp size={18} />
           </span>
