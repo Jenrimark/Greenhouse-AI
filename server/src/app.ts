@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { requestId } from './middleware/requestId.js'
 import { apiNotFound, errorHandler } from './middleware/error.js'
+import { pingDb } from './db/pool.js'
 import { attachUser } from './middleware/auth.js'
 import authRoutes from './routes/auth.js'
 import accountRoutes from './routes/account.js'
@@ -29,6 +30,10 @@ export function createApp(): express.Express {
 
   // 健康检查
   app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }))
+  app.get('/api/health/deps', async (_req, res) => {
+    const pgOk = await pingDb()
+    res.status(pgOk ? 200 : 503).json({ postgres: pgOk ? 'ok' : 'down', redis: 'not_configured_yet' })
+  })
 
   // 业务 API
   app.use('/api/auth', authRoutes)
