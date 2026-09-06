@@ -1,17 +1,22 @@
+// 认证路由（阶段 1 A 任务：演示版，保持原行为；E 任务重写为邮箱密码 + 真实会话）
 import { Router } from 'express'
+import { z } from 'zod'
 import { db, save, id } from '../db.js'
+import { validateBody } from '../middleware/validate.js'
 
 const router = Router()
 
-// 登录（演示：任意邮箱 + 至少 12 位密码即通过，也可直接通过演示账号）
-router.post('/login', (req, res) => {
-  const { email } = req.body || {}
+const loginSchema = z.object({
+  email: z.string().email('邮箱格式不正确').max(254),
+})
+
+// 登录（演示）
+router.post('/login', validateBody(loginSchema), (req, res) => {
+  const { email } = req.body
   const state = db()
-  if (email) {
-    state.user.email = String(email)
-    const name = String(email).split('@')[0]
-    if (name) state.user.name = name
-  }
+  state.user.email = email
+  const name = email.split('@')[0]
+  if (name) state.user.name = name
   const session = { id: id('sess'), userId: state.user.id }
   state.sessions.push(session)
   save()
@@ -20,7 +25,7 @@ router.post('/login', (req, res) => {
 })
 
 // 游客免登录
-router.post('/guest', (req, res) => {
+router.post('/guest', (_req, res) => {
   const state = db()
   const session = { id: id('sess'), userId: state.user.id }
   state.sessions.push(session)
@@ -29,7 +34,7 @@ router.post('/guest', (req, res) => {
   res.json({ ok: true, user: state.user })
 })
 
-router.post('/logout', (req, res) => {
+router.post('/logout', (_req, res) => {
   res.clearCookie('gr_session')
   res.json({ ok: true })
 })

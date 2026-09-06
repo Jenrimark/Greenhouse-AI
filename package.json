@@ -13,7 +13,7 @@
     "dev": "concurrently -n server,client -c green,cyan \"npm:dev -w server\" \"npm:dev -w client\"",
     "dev:server": "npm run dev -w server",
     "dev:client": "npm run dev -w client",
-    "build": "npm run build -w client",
+    "build": "npm run build -w server && npm run build -w client",
     "start": "npm run start -w server"
   },
   "devDependencies": {
