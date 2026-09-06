@@ -8,7 +8,7 @@ import { requestId } from './middleware/requestId.js'
 import { apiNotFound, errorHandler } from './middleware/error.js'
 import { pingDb } from './db/pool.js'
 import { pingRedis } from './redis/client.js'
-import { attachUser } from './middleware/auth.js'
+import { attachUserIfPresent } from './middleware/requireAuth.js'
 import authRoutes from './routes/auth.js'
 import accountRoutes from './routes/account.js'
 import opportunityRoutes from './routes/opportunities.js'
@@ -27,7 +27,7 @@ export function createApp(): express.Express {
   app.use(requestId)
   app.use(express.json({ limit: '8mb' }))
   app.use(cookieParser())
-  app.use(attachUser)
+  app.use(attachUserIfPresent)
 
   // 健康检查
   app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }))
