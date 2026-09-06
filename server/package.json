@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "migrate": "node-pg-migrate up -m migrations",
     "migrate:down": "node-pg-migrate down -m migrations",
-    "migrate:create": "node-pg-migrate create"
+    "migrate:create": "node-pg-migrate create",
+    "migrate:dbjson": "tsx scripts/migrate-dbjson.ts"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
