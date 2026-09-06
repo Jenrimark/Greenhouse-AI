@@ -12,9 +12,11 @@
     "migrate": "node-pg-migrate up -m migrations",
     "migrate:down": "node-pg-migrate down -m migrations",
     "migrate:create": "node-pg-migrate create",
-    "migrate:dbjson": "tsx scripts/migrate-dbjson.ts"
+    "migrate:dbjson": "tsx scripts/migrate-dbjson.ts",
+    "seed:admin": "tsx scripts/seed-admin.ts"
   },
   "dependencies": {
+    "argon2": "^0.45.1",
     "cookie-parser": "^1.4.7",
     "express": "^4.21.2",
     "ioredis": "^6.0.0",

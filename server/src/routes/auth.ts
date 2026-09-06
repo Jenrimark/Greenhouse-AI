@@ -1,42 +1,74 @@
-// 认证路由（阶段 1 A 任务：演示版，保持原行为；E 任务重写为邮箱密码 + 真实会话）
+// 认证路由：注册 / 登录 / 登出（真实会话，argon2id + 令牌落库）
 import { Router } from 'express'
 import { z } from 'zod'
-import { db, save, id } from '../db.js'
+import { loginUser, logoutSession, registerUser } from '../services/auth.js'
 import { validateBody } from '../middleware/validate.js'
+import { rateLimit } from '../redis/rateLimit.js'
+import { requireAuth } from '../middleware/requireAuth.js'
+import { env } from '../config/env.js'
 
 const router = Router()
 
+const registerSchema = z.object({
+  email: z.string().trim().toLowerCase().email('邮箱格式不正确').max(254),
+  password: z.string().min(8, '密码至少 8 位').max(128),
+  name: z.string().trim().min(1).max(50).optional(),
+})
+
+// 注册：限流 10 次 / 15 分钟（IP）
+router.post(
+  '/register',
+  rateLimit({ name: 'auth:register', limit: 10, windowSec: 900 }),
+  validateBody(registerSchema),
+  async (req, res, next) => {
+    try {
+      const user = await registerUser(req.body)
+      res.status(201).json({ data: { user } })
+    } catch (err) {
+      next(err)
+    }
+  },
+)
+
 const loginSchema = z.object({
-  email: z.string().email('邮箱格式不正确').max(254),
+  email: z.string().trim().toLowerCase().email('邮箱格式不正确').max(254),
+  password: z.string().min(1).max(128),
 })
 
-// 登录（演示）
-router.post('/login', validateBody(loginSchema), (req, res) => {
-  const { email } = req.body
-  const state = db()
-  state.user.email = email
-  const name = email.split('@')[0]
-  if (name) state.user.name = name
-  const session = { id: id('sess'), userId: state.user.id }
-  state.sessions.push(session)
-  save()
-  res.cookie('gr_session', session.id, { httpOnly: true, sameSite: 'lax', maxAge: 30 * 864e5 })
-  res.json({ ok: true, user: state.user })
-})
+// 登录：限流 20 次 / 15 分钟（IP）
+router.post(
+  '/login',
+  rateLimit({ name: 'auth:login', limit: 20, windowSec: 900 }),
+  validateBody(loginSchema),
+  async (req, res, next) => {
+    try {
+      const xff = req.headers['x-forwarded-for']
+      const ip = (typeof xff === 'string' ? xff.split(',')[0] : req.socket?.remoteAddress) ?? undefined
+      const { user, token } = await loginUser(req.body, { ip, userAgent: req.headers['user-agent'] })
+      res.cookie(env.COOKIE_NAME, token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: env.COOKIE_SECURE,
+        maxAge: env.SESSION_TTL_DAYS * 864e5,
+        path: '/',
+      })
+      res.json({ data: { user } })
+    } catch (err) {
+      next(err)
+    }
+  },
+)
 
-// 游客免登录
-router.post('/guest', (_req, res) => {
-  const state = db()
-  const session = { id: id('sess'), userId: state.user.id }
-  state.sessions.push(session)
-  save()
-  res.cookie('gr_session', session.id, { httpOnly: true, sameSite: 'lax' })
-  res.json({ ok: true, user: state.user })
-})
-
-router.post('/logout', (_req, res) => {
-  res.clearCookie('gr_session')
-  res.json({ ok: true })
+// 登出：吊销会话并清除 cookie
+router.post('/logout', requireAuth, async (req, res, next) => {
+  try {
+    const token = req.cookies?.[env.COOKIE_NAME] as string | undefined
+    if (token) await logoutSession(token)
+    res.clearCookie(env.COOKIE_NAME, { path: '/' })
+    res.json({ data: { ok: true } })
+  } catch (err) {
+    next(err)
+  }
 })
 
 export default router
