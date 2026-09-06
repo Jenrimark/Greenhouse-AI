@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { requestId } from './middleware/requestId.js'
 import { apiNotFound, errorHandler } from './middleware/error.js'
+import { httpLogger } from './lib/logger.js'
 import { pingDb } from './db/pool.js'
 import { pingRedis } from './redis/client.js'
 import { attachUserIfPresent } from './middleware/requireAuth.js'
@@ -25,6 +26,7 @@ export function createApp(): express.Express {
   const app = express()
 
   app.disable('x-powered-by')
+  app.use(httpLogger)
   app.use(requestId)
   app.use(express.json({ limit: '8mb' }))
   app.use(cookieParser())

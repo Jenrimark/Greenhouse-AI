@@ -2,6 +2,7 @@
 import { createApp } from './app.js'
 import { env } from './config/env.js'
 import { startSessionCleanup } from './services/auth.js'
+import { logger } from './lib/logger.js'
 
 const app = createApp()
 
@@ -9,8 +10,5 @@ const app = createApp()
 startSessionCleanup()
 
 app.listen(env.PORT, () => {
-  console.log(`\n  Greenhouse 服务已启动`)
-  console.log(`  ├─ 环境:   ${env.NODE_ENV}`)
-  console.log(`  ├─ API:   http://localhost:${env.PORT}/api`)
-  console.log(`  └─ 健康:  http://localhost:${env.PORT}/api/health\n`)
+  logger.info({ port: env.PORT, env: env.NODE_ENV }, 'Greenhouse API 已启动')
 })
