@@ -1,0 +1,80 @@
+# Greenhouse 一键起全栈（本地/单机 ECS 通用）
+# 用法：cp .env.example .env（按需改 DATABASE_URL/REDIS_URL 为容器地址）→ docker compose up -d --build
+# 生产：PostgreSQL 用阿里云 RDS（替换 postgres 服务为外部连接串），Redis 可保留容器
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: greenhouse
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d greenhouse"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "${PG_PORT:-5433}:5432" # 仅本地联调（默认 5433 避免与本机 PG 冲突）；生产请勿暴露公网
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "${REDIS_PORT:-6380}:6379" # 仅本地联调（默认 6380 避免与本机 Redis 冲突）
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/greenhouse
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+      COOKIE_SECURE: "false" # 生产接 HTTPS 后改为 true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # 启动前执行迁移（幂等）
+    command: sh -c "npm run migrate -w server && npm run start -w server"
+    expose:
+      - "8787"
+
+  worker:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/greenhouse
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+    depends_on:
+      api:
+        condition: service_started
+    command: ["node", "server/dist/worker/index.js"]
+
+  nginx:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    ports:
+      - "80:80"
+      # 生产 HTTPS：443:443 并挂载证书
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  redisdata:

@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: greenhouse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d greenhouse"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 后端类型检查
+        run: npm run typecheck -w server
+
+      - name: 构建
+        run: npm run build
+
+      - name: 数据库迁移
+        run: npm run migrate -w server
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/greenhouse
+
+      - name: 健康检查（API）
+        run: |
+          npm run start -w server &
+          npx wait-on http://localhost:8787/api/health/deps -t 30000
+          curl -sf http://localhost:8787/api/health/deps
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/greenhouse
+          REDIS_URL: redis://localhost:6379
+          PORT: 8787
+
+      - name: Docker 镜像构建（API + 前端）
+        run: |
+          docker build -f server/Dockerfile -t greenhouse-api:ci .
+          docker build -f client/Dockerfile -t greenhouse-web:ci .
