@@ -19,6 +19,8 @@ export interface AgentChatInput {
   userId: string
   message: string
   conversationId?: string
+  /** 显式指定意图（跳过自动路由；如模拟面试页强制 interview） */
+  forceIntent?: 'strategy' | 'resume' | 'interview' | 'qa' | 'chat'
 }
 
 export interface AgentChatResult {
@@ -71,6 +73,7 @@ export async function runAgentChat(input: AgentChatInput): Promise<AgentChatResu
       messages: [new HumanMessage(input.message)],
       userId: input.userId,
       conversationId: conv.id,
+      intent: input.forceIntent,
     },
     { configurable: { thread_id: thread } },
   )
