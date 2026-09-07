@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Target, FileUp, FilePlus2, CopyPlus, ChevronRight, FileText, Briefcase, Languages, Check, X } from 'lucide-react'
+import { Target, FileUp, FilePlus2, CopyPlus, ChevronRight, FileText, Briefcase, Languages, Check, X, Sparkles, Loader2 } from 'lucide-react'
 import { useT } from '../i18n/I18n'
 import { Button } from '../components/Button'
+import { generateResume, pollTask } from '../lib/agent'
 
 // 新建简历的四条路径
 const START_PATHS = [
@@ -62,6 +63,10 @@ export function StudioScreen() {
   const [selectedTpl, setSelectedTpl] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [myResumes, setMyResumes] = useState<Array<{ id: string; kind: string; name: string; updated: string }>>([])
+  const [aiRole, setAiRole] = useState('')
+  const [aiJd, setAiJd] = useState('')
+  const [aiStatus, setAiStatus] = useState<'idle' | 'running' | 'done' | 'failed'>('idle')
+  const [aiError, setAiError] = useState<string | null>(null)
 
   const templates = useMemo(
     () => (filter === 'all' ? TEMPLATES : TEMPLATES.filter((x) => x.cat === filter)),
@@ -101,6 +106,37 @@ export function StudioScreen() {
     setSelectedTpl(null)
   }
 
+  // AI 生成简历：入队 → 异步任务轮询 → 产物回填
+  const startAiGenerate = async () => {
+    const role = aiRole.trim()
+    if (!role || aiStatus === 'running') return
+    setAiStatus('running')
+    setAiError(null)
+    try {
+      const { taskId } = await generateResume(role, aiJd.trim() || undefined)
+      const task = await pollTask(taskId, (t) => {
+        if (t.status === 'failed') setAiError(t.error ?? '生成失败')
+      })
+      if (task.status === 'done') {
+        const resumeId = task.output?.resumeId ?? Date.now().toString()
+        const title = task.output?.title ?? `${role}·AI 简历`
+        setMyResumes((prev) => [{
+          id: resumeId,
+          kind: 'studio_home_target',
+          name: title,
+          updated: '刚刚',
+        }, ...prev])
+        setAiStatus('done')
+      } else {
+        setAiStatus('failed')
+        if (!aiError) setAiError(task.error ?? '生成失败，请稍后重试')
+      }
+    } catch (e) {
+      setAiStatus('failed')
+      setAiError(e instanceof Error ? e.message : '生成失败，请稍后重试')
+    }
+  }
+
   return (
     <div className="page studio">
       {/* 新建简历 */}
@@ -129,6 +165,42 @@ export function StudioScreen() {
               </button>
             )
           })}
+        </div>
+      </section>
+
+      {/* AI 生成简历 */}
+      <section className="rshome-block">
+        <div className="rshome-section-head">
+          <h2 className="rshome-section-t"><Sparkles size={16} style={{ verticalAlign: '-2px', marginRight: 6 }} />AI 生成简历</h2>
+          <span className="faint rshome-section-note">输入目标岗位与 JD，后台 Agent 生成后自动回填到我的简历</span>
+        </div>
+        <div className="rshome-ai-gen">
+          <div className="rshome-ai-gen-fields">
+            <input
+              className="rshome-ai-gen-input"
+              placeholder="目标岗位，如：大厂后端工程师"
+              value={aiRole}
+              onChange={(e) => setAiRole(e.target.value)}
+              maxLength={100}
+            />
+            <textarea
+              className="rshome-ai-gen-input rshome-ai-gen-jd"
+              placeholder="岗位 JD（可选，粘贴职位描述）"
+              value={aiJd}
+              onChange={(e) => setAiJd(e.target.value)}
+              maxLength={5000}
+              rows={2}
+            />
+          </div>
+          <div className="rshome-ai-gen-bar">
+            {aiStatus === 'running' && <span className="rshome-ai-gen-state"><Loader2 size={14} className="spin" /> 生成中，后台异步处理…</span>}
+            {aiStatus === 'done' && <span className="rshome-ai-gen-state is-ok"><Check size={14} /> 已生成并回填</span>}
+            {aiError && <span className="rshome-ai-gen-state is-err">{aiError}</span>}
+            <span className="grow" />
+            <Button variant="primary" size="sm" onClick={startAiGenerate} disabled={!aiRole.trim() || aiStatus === 'running'}>
+              {aiStatus === 'running' ? '生成中…' : 'AI 生成'}
+            </Button>
+          </div>
         </div>
       </section>
 
