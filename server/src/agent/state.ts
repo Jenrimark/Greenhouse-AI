@@ -49,5 +49,5 @@ export type AgentState = typeof AgentStateAnnotation.State
 
 /** LLM 抽象：mock 与真实 ChatModelClient 都满足（A5 子图/路由可注入） */
 export interface ChatModelLike {
-  invoke(messages: BaseMessage[], timeoutMsOverride?: number): Promise<{ content: string | unknown; [k: string]: unknown }>
+  invoke(messages: BaseMessage[], timeoutMsOverride?: number): Promise<{ content: unknown }>
 }
