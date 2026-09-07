@@ -18,7 +18,8 @@
     "a2:smoke": "tsx scripts/a2-smoke.ts",
     "test:agent": "tsx --test tests/agent-tools.test.ts",
     "a4:smoke": "tsx scripts/a4-smoke.ts",
-    "a5:smoke": "tsx scripts/a5-smoke.ts"
+    "a5:smoke": "tsx scripts/a5-smoke.ts",
+    "a6:smoke": "tsx scripts/a6-smoke.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.2.9",
