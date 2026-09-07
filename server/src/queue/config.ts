@@ -2,8 +2,8 @@
 import { env } from '../config/env.js'
 
 export const QUEUE_NAMES = {
-  /** Agent 异步节点（简历生成等耗时任务） */
-  agentTasks: 'agent:tasks',
+  /** Agent 异步节点（简历生成等耗时任务）。注意：bullmq 队列名不能包含冒号 */
+  agentTasks: 'agent_tasks',
 } as const
 
 /**
