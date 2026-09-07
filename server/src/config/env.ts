@@ -27,6 +27,7 @@ const envSchema = z.object({
   AGENT_FALLBACK_MODEL: z.string().default(''),
   AGENT_FALLBACK_BASE_URL: z.string().default(''),
   AGENT_FALLBACK_API_KEY: z.string().default(''),
+  AGENT_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
 })
 
 export type Env = z.infer<typeof envSchema>
