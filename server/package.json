@@ -15,7 +15,8 @@
     "migrate:dbjson": "tsx scripts/migrate-dbjson.ts",
     "seed:admin": "tsx scripts/seed-admin.ts",
     "a1:smoke": "tsx scripts/a1-smoke.ts",
-    "a2:smoke": "tsx scripts/a2-smoke.ts"
+    "a2:smoke": "tsx scripts/a2-smoke.ts",
+    "test:agent": "tsx --test tests/agent-tools.test.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.2.9",
