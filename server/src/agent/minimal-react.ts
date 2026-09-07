@@ -37,12 +37,12 @@ async function mockModelNode(state: AgentState): Promise<Partial<AgentState>> {
       ],
     }
   }
-  // 首轮 → 请求调用工具
+  // 首轮 → 请求调用工具（tool_call id 必须每次唯一：ToolNode 会过滤历史已消费的 id）
   return {
     messages: [
       new AIMessage({
         content: '',
-        tool_calls: [{ name: 'get_weather', args: { city: '武汉' }, id: 'call_demo_1' }],
+        tool_calls: [{ name: 'get_weather', args: { city: '武汉' }, id: crypto.randomUUID() }],
       }),
     ],
   }
@@ -67,9 +67,11 @@ export interface MinimalReActOptions {
   baseURL?: string
   apiKey?: string
   model?: string
+  /** 自定义 checkpointer（A4 起传 PostgresSaver；默认 MemorySaver） */
+  checkpointer?: unknown
 }
 
-/** 构建最小 ReAct 图（MemorySaver 断点） */
+/** 构建最小 ReAct 图（编译后返回） */
 export function createMinimalReAct(opts: MinimalReActOptions) {
   const modelNode =
     opts.mode === 'real'
@@ -90,7 +92,7 @@ export function createMinimalReAct(opts: MinimalReActOptions) {
       return END
     })
     .addEdge('tools', 'model')
-    .compile({ checkpointer: new MemorySaver() })
+    .compile({ checkpointer: (opts.checkpointer ?? new MemorySaver()) as never })
 
   return { graph, tools: WEATHER_TOOLS }
 }
