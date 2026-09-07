@@ -18,6 +18,7 @@ import resumeRoutes from './routes/resumes.js'
 import discoverRoutes from './routes/discover.js'
 import aiRoutes from './routes/ai.js'
 import agentTaskRoutes from './routes/agentTasks.js'
+import agentRoutes from './routes/agent.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CLIENT_DIST = path.join(__dirname, '..', '..', 'client', 'dist')
@@ -47,6 +48,7 @@ export function createApp(): express.Express {
   app.use('/api/stories', storyRoutes)
   app.use('/api/resumes', resumeRoutes)
   app.use('/api/job-search', discoverRoutes)
+  app.use('/api/agent', agentRoutes)
   app.use('/api/agent', agentTaskRoutes)
   app.use('/api', aiRoutes)
 
