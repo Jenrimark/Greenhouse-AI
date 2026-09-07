@@ -17,3 +17,15 @@ export async function getCheckpointer(): Promise<PostgresSaver> {
 export function threadIdFor(userId: string, conversationId: string): string {
   return `${userId}:${conversationId}`
 }
+
+/** 关闭 PostgresSaver 连接池（测试收尾用；生产进程退出时自动释放） */
+export async function closeCheckpointer(): Promise<void> {
+  if (saver) {
+    try {
+      const pool = (saver as unknown as { pool?: { end: () => Promise<void> } }).pool
+      await pool?.end()
+    } finally {
+      saver = null
+    }
+  }
+}
