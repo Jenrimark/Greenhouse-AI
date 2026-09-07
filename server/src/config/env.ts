@@ -28,6 +28,9 @@ const envSchema = z.object({
   AGENT_FALLBACK_BASE_URL: z.string().default(''),
   AGENT_FALLBACK_API_KEY: z.string().default(''),
   AGENT_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
+
+  // 可观测（A9；配置后启用 Sentry 上报）
+  SENTRY_DSN: z.string().default(''),
 })
 
 export type Env = z.infer<typeof envSchema>

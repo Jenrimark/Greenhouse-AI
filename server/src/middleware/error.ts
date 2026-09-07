@@ -30,6 +30,9 @@ export class ApiError extends Error {
   static tooMany(message = '请求过于频繁，请稍后再试') {
     return new ApiError(429, 'RATE_LIMITED', message)
   }
+  static paymentRequired(message = '余额不足') {
+    return new ApiError(402, 'PAYMENT_REQUIRED', message)
+  }
   static conflict(code: string, message: string) {
     return new ApiError(409, code, message)
   }
@@ -50,7 +53,6 @@ export function errorHandler(err: unknown, req: Request, res: Response, next: Ne
     res.status(err.status).json({ error: { code: err.code, message: err.message, ...(err.details !== undefined ? { details: err.details } : {}) } })
     return
   }
-
   if (err instanceof ZodError) {
     res.status(400).json({
       error: {
@@ -69,5 +71,11 @@ export function errorHandler(err: unknown, req: Request, res: Response, next: Ne
   }
 
   console.error(`[${requestId}] 未捕获错误:`, err)
+  // Sentry 上报（配置 SENTRY_DSN 后启用；本地/未配置时无副作用）
+  if (process.env.SENTRY_DSN) {
+    import('@sentry/node')
+      .then((Sentry) => Sentry.captureException(err, { tags: { requestId } }))
+      .catch(() => {})
+  }
   res.status(500).json({ error: { code: 'INTERNAL', message: '服务器内部错误' } })
 }
