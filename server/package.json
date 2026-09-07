@@ -13,10 +13,17 @@
     "migrate:down": "node-pg-migrate down -m migrations",
     "migrate:create": "node-pg-migrate create",
     "migrate:dbjson": "tsx scripts/migrate-dbjson.ts",
-    "seed:admin": "tsx scripts/seed-admin.ts"
+    "seed:admin": "tsx scripts/seed-admin.ts",
+    "a1:smoke": "tsx scripts/a1-smoke.ts"
   },
   "dependencies": {
+    "@langchain/core": "^1.2.9",
+    "@langchain/langgraph": "^1.4.14",
+    "@langchain/langgraph-checkpoint": "^1.1.5",
+    "@langchain/langgraph-checkpoint-postgres": "^1.0.5",
+    "@langchain/openai": "^1.5.11",
     "argon2": "^0.45.1",
+    "bullmq": "^6.3.4",
     "cookie-parser": "^1.4.7",
     "express": "^4.21.2",
     "ioredis": "^6.0.0",
