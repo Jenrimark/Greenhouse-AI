@@ -75,3 +75,16 @@ docker compose exec -e ADMIN_SEED_PASSWORD='<强口令>' api npm run seed:admin 
 - [ ] `docker compose restart api` 后服务自动恢复，迁移幂等
 - [ ] 管理员账号（demo@greenroom.local）可登录
 - [ ] 前端登录页 → 主界面端到端可用（管线/找岗位/岗位地图/经历/简历/设置）
+
+## I. Agent 上线检查（阶段 2 A10）
+
+- [ ] `.env` 配齐：`AGENT_PROVIDER/AGENT_MODEL/AGENT_BASE_URL/AGENT_API_KEY`（主）+ `AGENT_FALLBACK_*`（备）；`SENTRY_DSN`（可选）
+- [ ] worker 独立进程/容器运行：`node dist/worker/index.js`（bullmq 消费 agent_tasks）；compose 已含 worker 服务
+- [ ] 降级路径验证：主 LLM 5xx/超时 → 自动切备；全部不可用时 mock 兜底可回复
+- [ ] 每用户并发锁：同时两个 Agent 请求 → 第二个 429；agent:chat 每用户限流 20 次/分
+- [ ] credits 扣费：对话后 credits_tx 有流水、余额正确；余额不足返回 402（前端提示充值）
+- [ ] agent_traces 可复盘：一次对话在 traces 表可按 run_id 查各节点/LLM token/耗时
+- [ ] 越权复查：跨用户 conversation/task 访问均 404；工具层入参无 user_id 信任点
+- [ ] 灰度切真实供应商：先 10% 流量，观察 24h 无 5xx/扣费异常后全量
+- [ ] 会话恢复：服务重启后用户可继续对话（PostgresSaver 断点续跑）
+- [ ] 简历异步任务：worker 崩溃后任务重试 2 次 → failed 有告警日志；前端轮询可感知
