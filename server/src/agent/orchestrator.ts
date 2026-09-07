@@ -32,8 +32,15 @@ function wrapSubgraph(sub: unknown) {
 /** 构建主编排图（编译后返回；checkpointer 缺省 MemorySaver） */
 export function createOrchestrator(opts: OrchestratorOptions) {
   const { mode } = opts
-  const routerNode = mode === 'mock' ? createMockIntentRouter() : createIntentRouter(opts.llm!)
+  const innerRouter = mode === 'mock' ? createMockIntentRouter() : createIntentRouter(opts.llm!)
   const llm = opts.llm ?? (mockLlm() as unknown as ChatModelLike)
+  // 支持 forceIntent：调用方显式指定意图（如模拟面试页）时跳过自动分类
+  const routerNode = async (state: AgentState): Promise<Partial<AgentState>> => {
+    if (state.intent && ['strategy', 'resume', 'interview', 'qa', 'chat'].includes(String(state.intent))) {
+      return { intent: state.intent }
+    }
+    return innerRouter(state)
+  }
 
   const graph = new StateGraph(AgentStateAnnotation)
     .addNode('intent_router', routerNode)

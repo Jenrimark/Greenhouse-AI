@@ -159,6 +159,9 @@ const SAMPLE_QUESTIONS = [
 
 export function createInterviewSubgraph(llm: ChatModelLike) {
   const loadQuestions = async (state: AgentState): Promise<SubgraphOutput> => {
+    // 已有题库则保留（跨轮推进 questionIdx）；仅首次加载
+    const qs = state.memory.questions as Array<{ q: string; hint: string }> | undefined
+    if (qs && qs.length) return {}
     return { memory: { questions: SAMPLE_QUESTIONS, questionIdx: 0 } }
   }
 
@@ -177,10 +180,17 @@ export function createInterviewSubgraph(llm: ChatModelLike) {
       { getType: () => 'system', content: '你是资深面试官。对候选人的回答按 结构/亮点/改进 点评，并给出 0-100 分。' } as never,
       { getType: () => 'human', content: answer } as never,
     ])
-    const qs = (state.memory.questions ?? SAMPLE_QUESTIONS) as Array<{ q: string }>
-    const idx = ((state.memory.questionIdx as number) ?? 1) - 1
-    const q = qs[idx]
-    const content = `【第 ${idx + 1} 题点评】\n题目：${q?.q ?? ''}\n\n${typeof res.content === 'string' ? res.content : '（评分完成）'}`
+    const qs = (state.memory.questions ?? SAMPLE_QUESTIONS) as Array<{ q: string; hint?: string }>
+    // ask_question 已把 questionIdx 推进到"下一题"索引；上一题 = idx-2
+    const idx = (state.memory.questionIdx as number) ?? 1
+    const prev = qs[idx - 2]
+    const next = qs[idx - 1]
+    let content = `【第 ${idx - 1} 题点评】\n题目：${prev?.q ?? ''}\n\n${typeof res.content === 'string' ? res.content : '（评分完成）'}`
+    if (next) {
+      content += `\n\n【下一题】\n${next.q}\n（提示：${next.hint ?? ''}）`
+    } else {
+      content += '\n\n（题库已答完，面试结束）'
+    }
     return { messages: [new AIMessage(content)] }
   }
 
@@ -191,11 +201,11 @@ export function createInterviewSubgraph(llm: ChatModelLike) {
     .addEdge(START, 'load_questions')
     .addEdge('load_questions', 'ask_question')
     .addConditionalEdges('ask_question', (state) => {
-      const last = state.messages.at(-1)
       const lastUser = [...state.messages].reverse().find((m) => m.getType?.() === 'human')
-      const text = typeof lastUser?.content === 'string' ? lastUser.content : ''
-      // 刚问完题（最后是 assistant 提问）→ 等用户作答；用户作答后 → 评分
-      return last?.getType?.() === 'human' && text.length > 3 ? 'score_answer' : END
+      const text = typeof lastUser?.content === 'string' ? lastUser.content.trim() : ''
+      // 启动/指令类消息不评分；只有真实作答（>3 字且非指令）才走评分
+      const isCmd = /^(开始|请出|下一题|下一道|再来一次)/.test(text) || text.includes('模拟面试')
+      return text.length > 3 && !isCmd ? 'score_answer' : END
     })
     .addEdge('score_answer', END)
 

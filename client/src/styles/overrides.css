@@ -826,3 +826,35 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 /* 通用 spin 动画 */
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* === A8 Agent 对话：历史会话 / 轨迹折叠 / 错误提示 === */
+.chat-history{position:absolute;bottom:100%;left:0;right:0;max-height:260px;overflow:auto;background:var(--paper,#fff);border:1px solid var(--line,#e5e7eb);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.08);padding:8px;margin-bottom:8px;z-index:20}
+.chat-history-head{display:flex;justify-content:space-between;align-items:center;padding:4px 6px 8px;font-size:12px;color:var(--ink-2,#6b7280);border-bottom:1px solid var(--line,#e5e7eb)}
+.chat-history-new{font-size:12px;color:var(--accent,#2563eb);cursor:pointer;background:none;border:none}
+.chat-history-empty{padding:16px;text-align:center;color:var(--ink-3,#9ca3af);font-size:13px}
+.chat-history-item{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;padding:8px 6px;border-radius:8px;cursor:pointer;background:none;border:none}
+.chat-history-item:hover{background:var(--fill,#f3f4f6)}
+.chat-history-item.is-active{background:var(--fill-strong,#e5e7eb)}
+.chat-history-title{font-size:13px;color:var(--ink-1,#111827)}
+.chat-history-time{font-size:11px;color:var(--ink-3,#9ca3af)}
+.chat-error{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;font-size:12px;padding:6px 10px;border-radius:8px;margin-bottom:8px}
+.chat-trace-toggle{display:inline-flex;align-items:center;gap:4px;margin-left:10px;font-size:11px;color:var(--ink-3,#9ca3af);cursor:pointer;user-select:none}
+.chat-trace-toggle:hover{color:var(--accent,#2563eb)}
+.chat-trace-dot{width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block}
+.chat-trace{margin-top:8px;border:1px dashed var(--line,#e5e7eb);border-radius:8px;padding:8px 10px;font-size:12px;background:var(--paper-2,#f9fafb)}
+.chat-trace-row{display:flex;gap:8px;padding:2px 0}
+.chat-trace-label{color:var(--ink-3,#9ca3af);min-width:32px}
+.chat-trace-val{color:var(--ink-1,#111827);word-break:break-all}
+
+/* === A8 简历工作室：AI 生成区块 === */
+.rshome-ai-gen{border:1px solid var(--line,#e5e7eb);border-radius:12px;padding:14px;background:var(--paper-2,#f9fafb);display:flex;flex-direction:column;gap:10px}
+.rshome-ai-gen-fields{display:flex;flex-direction:column;gap:8px}
+.rshome-ai-gen-input{width:100%;border:1px solid var(--line,#e5e7eb);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--paper,#fff);color:var(--ink-1,#111827)}
+.rshome-ai-gen-input:focus{outline:none;border-color:var(--accent,#2563eb)}
+.rshome-ai-gen-jd{resize:vertical;min-height:44px;font-family:inherit}
+.rshome-ai-gen-bar{display:flex;align-items:center;gap:10px}
+.rshome-ai-gen-state{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-2,#6b7280)}
+.rshome-ai-gen-state.is-ok{color:#059669}
+.rshome-ai-gen-state.is-err{color:#b91c1c}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}

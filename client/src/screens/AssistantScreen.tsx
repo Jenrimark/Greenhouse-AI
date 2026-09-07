@@ -1,14 +1,17 @@
-import { useMemo, useRef, useState, useEffect } from 'react'
+import { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, ArrowUp, PenLine, Target, ListChecks, ChevronRight, Paperclip, FileText, Sparkles } from 'lucide-react'
+import { Plus, ArrowUp, PenLine, Target, ListChecks, ChevronRight, Paperclip, FileText, Sparkles, History } from 'lucide-react'
 import { useT } from '../i18n/I18n'
 import { useAppData } from '../shell/AppData'
+import { agentChat, listConversations, getConversationMessages, type ConversationItem, type HistoryMessage, type AgentChatResp } from '../lib/agent'
 
 interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
+  trace?: AgentChatResp['traceSummary']
+  intent?: string
 }
 
 function greetingKey(hour: number) {
@@ -21,24 +24,6 @@ function todayZh() {
   return `${d.getMonth() + 1} 月 ${d.getDate()} 日 周${'日一二三四五六'[d.getDay()]}`
 }
 
-// Mock AI 回复生成
-function mockAIReply(input: string): string {
-  const lower = input.toLowerCase()
-  if (lower.includes('简历') || lower.includes('resume')) {
-    return '好的，我来帮你优化简历。建议你先在「简历工作室」中选择一个目标岗位，我会根据岗位要求帮你提炼项目经历和技能关键词。你目前最想投递哪类岗位？'
-  }
-  if (lower.includes('面试') || lower.includes('interview')) {
-    return '面试准备建议：1）先在「岗位地图」中查看目标岗位的面试重点和高频问题；2）在「模拟面试」中进行实战演练；3）用「实时助手」在真实面试中获得提词提示。需要我针对某个具体岗位生成准备计划吗？'
-  }
-  if (lower.includes('岗位') || lower.includes('job') || lower.includes('工作')) {
-    return '找岗位的话，你可以在「找岗位」页面按关键词、城市、经验、薪资筛选。我也可以帮你分析当前市场趋势。你对哪个行业或职能方向感兴趣？'
-  }
-  if (lower.includes('你好') || lower.includes('hi') || lower.includes('hello')) {
-    return '你好！我是 Greenroom AI 求职助手。我可以帮你：优化简历、准备面试、分析岗位、制定求职计划。有什么我可以帮你的？'
-  }
-  return `收到你的问题：「${input}」。\n\n作为你的 AI 求职助手，我建议从以下几个方面入手：\n1. 明确目标岗位和行业\n2. 梳理相关经历和技能\n3. 针对性优化简历和面试准备\n\n需要我深入分析某个具体方面吗？你也可以点击下方的快捷建议开始。`
-}
-
 export function AssistantScreen() {
   const t = useT()
   const navigate = useNavigate()
@@ -47,6 +32,11 @@ export function AssistantScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isTyping, setIsTyping] = useState(false)
   const [showAttach, setShowAttach] = useState(false)
+  const [conversationId, setConversationId] = useState<string | undefined>()
+  const [conversations, setConversations] = useState<ConversationItem[]>([])
+  const [showHistory, setShowHistory] = useState(false)
+  const [chatError, setChatError] = useState<string | null>(null)
+  const [traceOpen, setTraceOpen] = useState('')
   const taRef = useRef<HTMLTextAreaElement>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
@@ -71,30 +61,82 @@ export function AssistantScreen() {
 
   const ready = value.trim().length > 0
 
-  const sendMessage = () => {
+  // 会话列表加载
+  const loadConversations = useCallback(async () => {
+    try {
+      const list = await listConversations()
+      setConversations(list)
+    } catch {
+      setConversations([])
+    }
+  }, [])
+
+  useEffect(() => {
+    loadConversations()
+  }, [loadConversations])
+
+  // 切换会话：加载历史消息
+  const switchConversation = async (conv: ConversationItem) => {
+    setShowHistory(false)
+    setConversationId(conv.id)
+    setChatError(null)
+    try {
+      const items = await getConversationMessages(conv.id)
+      setMessages(
+        items
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map((m: HistoryMessage) => ({
+            id: m.id,
+            role: m.role as 'user' | 'assistant',
+            content: m.content ?? '',
+            timestamp: new Date(m.createdAt),
+          })),
+      )
+    } catch {
+      setMessages([])
+    }
+  }
+
+  const newChat = () => {
+    setShowHistory(false)
+    setConversationId(undefined)
+    setMessages([])
+    setChatError(null)
+  }
+
+  const sendMessage = async () => {
     if (!ready || isTyping) return
+    const text = value.trim()
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: value.trim(),
+      content: text,
       timestamp: new Date(),
     }
     setMessages((prev) => [...prev, userMsg])
     setValue('')
     setIsTyping(true)
     setShowAttach(false)
+    setChatError(null)
 
-    // Mock AI 回复延迟
-    setTimeout(() => {
+    try {
+      const resp = await agentChat(text, conversationId)
+      setConversationId(resp.conversationId)
       const aiMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: mockAIReply(userMsg.content),
+        content: resp.reply,
         timestamp: new Date(),
+        trace: resp.traceSummary,
+        intent: resp.intent,
       }
       setMessages((prev) => [...prev, aiMsg])
+      loadConversations()
+    } catch (e) {
+      setChatError(e instanceof Error ? e.message : '对话失败，请稍后重试')
+    } finally {
       setIsTyping(false)
-    }, 800 + Math.random() * 600)
+    }
   }
 
   useEffect(() => {
@@ -209,10 +251,33 @@ export function AssistantScreen() {
                     )}
                   </div>
                   <div className="chat-msg-body">
-                    <div className="chat-msg-name">{msg.role === 'user' ? me?.name ?? '我' : 'Greenroom AI'}</div>
+                    <div className="chat-msg-name">
+                      {msg.role === 'user' ? me?.name ?? '我' : 'Greenroom AI'}
+                      {msg.role === 'assistant' && (
+                        <span className="chat-trace-toggle" onClick={() => msg.trace && setTraceOpen(msg.trace.runId === traceOpen ? '' : msg.trace!.runId)}>
+                          <span className="chat-trace-dot" /> Agent 轨迹
+                        </span>
+                      )}
+                    </div>
                     <div className="chat-msg-content">{msg.content.split('\n').map((line, i) => (
                       <p key={i}>{line}</p>
                     ))}</div>
+                    {msg.role === 'assistant' && msg.trace && traceOpen === msg.trace.runId && (
+                      <div className="chat-trace">
+                        <div className="chat-trace-row">
+                          <span className="chat-trace-label">意图</span>
+                          <span className="chat-trace-val">{msg.intent ?? 'qa'}</span>
+                        </div>
+                        <div className="chat-trace-row">
+                          <span className="chat-trace-label">步骤</span>
+                          <span className="chat-trace-val">{msg.trace.steps.join(' → ')}</span>
+                        </div>
+                        <div className="chat-trace-row">
+                          <span className="chat-trace-label">耗时</span>
+                          <span className="chat-trace-val">{msg.trace.durationMs} ms</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -233,6 +298,29 @@ export function AssistantScreen() {
             </div>
 
             <div className="chat-composer-wrap">
+              {showHistory && (
+                <div className="chat-history">
+                  <div className="chat-history-head">
+                    <span>历史会话</span>
+                    <button type="button" onClick={newChat} className="chat-history-new">+ 新对话</button>
+                  </div>
+                  {conversations.length === 0 && <div className="chat-history-empty">暂无历史会话</div>}
+                  {conversations.map((c) => (
+                    <button
+                      type="button"
+                      key={c.id}
+                      className={`chat-history-item ${conversationId === c.id ? 'is-active' : ''}`}
+                      onClick={() => switchConversation(c)}
+                    >
+                      <span className="chat-history-title truncate">{c.title || '未命名会话'}</span>
+                      <span className="chat-history-time">
+                        {new Date(c.updatedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {chatError && <div className="chat-error">{chatError}</div>}
               <div className="home-composer chat-composer">
                 <div className="home-composer-top">
                   <textarea
@@ -257,11 +345,11 @@ export function AssistantScreen() {
                   <button
                     className="hc-plus"
                     type="button"
-                    aria-label={t('hc_attach')}
-                    title={t('hc_attach')}
-                    onClick={() => setShowAttach(!showAttach)}
+                    aria-label="历史会话"
+                    title="历史会话"
+                    onClick={() => setShowHistory((v) => !v)}
                   >
-                    <Plus size={18} />
+                    <History size={18} />
                   </button>
                   <span className="grow" />
                   <button
