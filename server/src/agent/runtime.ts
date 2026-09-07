@@ -14,6 +14,9 @@ import {
   langchainMessageToRows,
 } from '../services/agentMemory.js'
 import { logger } from '../lib/logger.js'
+import { GreenhouseTracer } from './tracer.js'
+import { chargeCredits, creditsFromTokens } from '../services/credits.js'
+import { getPool } from '../db/pool.js'
 
 export interface AgentChatInput {
   userId: string
@@ -65,6 +68,7 @@ export async function runAgentChat(input: AgentChatInput): Promise<AgentChatResu
   const llm = mode === 'real' ? createChatModelFromEnv() : undefined
   const saver = await getCheckpointer()
   const graph = createOrchestrator({ mode, llm, checkpointer: saver })
+  const tracer = new GreenhouseTracer()
 
   // 4. 执行图
   const thread = threadIdFor(input.userId, conv.id)
@@ -75,7 +79,7 @@ export async function runAgentChat(input: AgentChatInput): Promise<AgentChatResu
       conversationId: conv.id,
       intent: input.forceIntent,
     },
-    { configurable: { thread_id: thread } },
+    { configurable: { thread_id: thread }, callbacks: [tracer] },
   )
   const final = result.messages.at(-1)
   const reply =
@@ -104,14 +108,39 @@ export async function runAgentChat(input: AgentChatInput): Promise<AgentChatResu
     logger.warn({ error: (e as Error).message }, '画像抽取失败（忽略）')
   }
 
-  // 7. trace 摘要（A9 深化为逐步 agent_traces）
+  // 7. trace 落库（每节点/LLM 调用）+ credits 扣费（LLM token → credits，流水可审计）
+  const traces = tracer.records.filter((r) => r.runType !== 'tool')
+  await persistTraces(input.userId, conv.id, runId, traces)
+  const llmUsages = tracer.records.filter((r) => r.runType === 'llm' && r.usage)
+  const tokenTotal: { promptTokens?: number; completionTokens?: number } = llmUsages.reduce(
+    (acc, r) => {
+      acc.promptTokens = (acc.promptTokens ?? 0) + (r.usage?.promptTokens ?? 0)
+      acc.completionTokens = (acc.completionTokens ?? 0) + (r.usage?.completionTokens ?? 0)
+      return acc
+    },
+    { promptTokens: 0, completionTokens: 0 } as { promptTokens: number; completionTokens: number },
+  )
+  const cost = creditsFromTokens(tokenTotal)
+  if (cost > 0) {
+    await chargeCredits({
+      userId: input.userId,
+      credits: cost,
+      reason: 'agent_llm',
+      refId: runId,
+    }).catch((e) => {
+      // mock 模式无 token 不扣费；真实模式余额不足时已产生对话，记录但不阻断回复
+      logger.warn({ runId, error: (e as Error).message }, 'credits 扣费失败（已产生对话）')
+    })
+  }
+
   const traceSummary = {
     runId,
     steps: ['intent_router', String(result.intent ?? 'qa')],
     durationMs: Date.now() - started,
+    creditsUsed: cost,
   }
   logger.info(
-    { runId, userId: input.userId, conversationId: conv.id, intent: result.intent, mode, durationMs: traceSummary.durationMs },
+    { runId, userId: input.userId, conversationId: conv.id, intent: result.intent, mode, durationMs: traceSummary.durationMs, creditsUsed: cost },
     'agent chat completed',
   )
 
@@ -120,5 +149,43 @@ export async function runAgentChat(input: AgentChatInput): Promise<AgentChatResu
     conversationId: conv.id,
     intent: String(result.intent ?? 'qa'),
     traceSummary,
+  }
+}
+
+/** 把采集到的节点/LLM 轨迹写入 agent_traces（失败不阻断对话，仅告警） */
+async function persistTraces(
+  userId: string,
+  conversationId: string,
+  runId: string,
+  records: import('./tracer.js').TraceNodeRecord[],
+): Promise<void> {
+  if (!records.length) return
+  const pool = getPool()
+  for (const r of records) {
+    try {
+      await pool.query(
+        `INSERT INTO agent_traces
+           (run_id, user_id, conversation_id, node, action, input, output, provider, model, prompt_tokens, completion_tokens, cost, duration_ms, status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+        [
+          runId,
+          userId,
+          conversationId,
+          r.name,
+          r.runType,
+          r.inputs == null ? null : JSON.stringify(r.inputs),
+          r.outputs == null ? null : JSON.stringify(r.outputs),
+          r.usage?.provider ?? null,
+          r.usage?.model ?? null,
+          r.usage?.promptTokens ?? null,
+          r.usage?.completionTokens ?? null,
+          r.usage ? creditsFromTokens(r.usage) : null,
+          r.durationMs ?? null,
+          r.error ? 'error' : 'ok',
+        ],
+      )
+    } catch (e) {
+      logger.warn({ runId, node: r.name, error: (e as Error).message }, 'agent_trace 落库失败')
+    }
   }
 }
