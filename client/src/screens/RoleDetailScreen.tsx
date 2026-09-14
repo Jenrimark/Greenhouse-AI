@@ -5,6 +5,7 @@ import { useT, useI18n } from '../i18n/I18n'
 import { PixelAvatar } from '../components/PixelAvatar'
 import { Button } from '../components/Button'
 import { useLazyData } from '../lib/lazyData'
+import { resolveFlowMapId } from '../lib/atlasData'
 
 // 中国公司列表（前10个）
 const CN_COMPANIES = ['alibaba', 'bytedance', 'tencent', 'meituan', 'baidu', 'jd', 'netease', 'kuaishou', 'didi', 'xiaomi']
@@ -46,7 +47,7 @@ export function RoleDetailScreen() {
   const navigate = useNavigate()
   const t = useT()
   const { lang } = useI18n()
-  const { data: ds, ready } = useLazyData(['catalog', 'ladders', 'company-levels', 'interview-focus', 'flow-maps', 'flow-node-map', 'level-focus'])
+  const { data: ds, ready, error, retry } = useLazyData(['catalog', 'ladders', 'company-levels', 'interview-focus', 'flow-maps', 'flow-node-map', 'level-focus'])
   const [levelIdx, setLevelIdx] = useState(2) // 默认高级 ic3
   const [showFullMatrix, setShowFullMatrix] = useState(false)
 
@@ -101,8 +102,10 @@ export function RoleDetailScreen() {
   // 运转图数据
   const flowMap = useMemo(() => {
     if (!role) return null
-    return (flowMaps as any)[role.industryId] ?? null
-  }, [role])
+    const roleIndustry = INDUSTRIES.find((item: any) => item.id === role.industryId)
+    const mapId = resolveFlowMapId(roleIndustry ?? { id: role.industryId }, flowMaps)
+    return (flowMaps as any)?.[mapId ?? role.industryId] ?? null
+  }, [role, INDUSTRIES, flowMaps])
 
   // 环节（family）
   const slot = useMemo(() => {
@@ -163,6 +166,15 @@ export function RoleDetailScreen() {
 
   const cnCompanies = levelCompanies.filter((c: any) => CN_COMPANIES.includes(c.company))
   const intlCompanies = levelCompanies.filter((c: any) => !CN_COMPANIES.includes(c.company))
+
+  if (error) {
+    return (
+      <div className="page">
+        <p>岗位详情数据加载失败，请重试。</p>
+        <Button onClick={retry}>重试</Button>
+      </div>
+    )
+  }
 
   if (!ready) {
     return (

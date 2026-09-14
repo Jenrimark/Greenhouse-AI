@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Search, X, Flame, Sparkles, Layers } from 'lucide-react'
 import { useT, useI18n } from '../i18n/I18n'
 import { GridSelect, INDUSTRY_ICONS } from '../components/GridSelect'
@@ -6,6 +6,7 @@ import { PixelAvatar } from '../components/PixelAvatar'
 import { FlowMapView } from '../components/FlowMapView'
 import { IntelPanel } from '../components/IntelPanel'
 import { useLazyData } from '../lib/lazyData'
+import { getIndustryById, resolveFlowMapId } from '../lib/atlasData'
 
 type View = 'catalog' | 'flow'
 
@@ -53,7 +54,7 @@ function RoleCard({ role, showIndustry, onSelect }: { role: any; showIndustry?: 
 export function AtlasScreen() {
   const t = useT()
   const { lang } = useI18n()
-  const { data: ds, ready } = useLazyData(['catalog'])
+  const { data: ds, ready, error, retry } = useLazyData(['catalog'])
   const [industryId, setIndustryId] = useState('internet')
   const [track, setTrack] = useState('internet')
   const [view, setView] = useState<View>('catalog')
@@ -64,12 +65,18 @@ export function AtlasScreen() {
   const INDUSTRIES = ready ? (catalog?.CATALOG_INDUSTRIES as any[]) ?? [] : []
   const ALL_ROLES = ready ? (catalog?.ALL_CAT_ROLES as any[]) ?? [] : []
 
-  const industry = useMemo(() => INDUSTRIES.find((i) => i.id === industryId) ?? INDUSTRIES[0], [INDUSTRIES, industryId])
 
+  const industry = useMemo(() => getIndustryById(INDUSTRIES, industryId), [INDUSTRIES, industryId])
+  const flowTracks = (industry?.flowTracks as any[] | undefined) ?? []
   const trackOptions = useMemo(
-    () => industry.flowTracks.map((f: any) => ({ value: f.id, label: f.label[lang] })),
-    [industry, lang],
+    () => flowTracks.map((f: any) => ({ value: f.id, label: f.label?.[lang] ?? f.id })),
+    [flowTracks, lang],
   )
+  const selectedTrack = useMemo(
+    () => flowTracks.find((f: any) => f.id === track),
+    [flowTracks, track],
+  )
+  const mapId = selectedTrack?.mapId ?? resolveFlowMapId(industry)
 
   const searchResults = useMemo(() => {
     const kw = q.trim().toLowerCase()
@@ -81,10 +88,26 @@ export function AtlasScreen() {
         (r.aliases || []).some((a: string) => a.toLowerCase().includes(kw))
       )
     }).slice(0, 60)
-  }, [q, lang])
+  }, [ALL_ROLES, q, lang])
+
+  useEffect(() => {
+    const firstTrack = flowTracks[0]
+    setTrack(firstTrack?.id ?? industry?.mapId ?? industry?.id ?? '')
+  }, [industry, flowTracks])
 
   const handleSelectRole = (id: string) => {
     setSelectedRoleId(id)
+  }
+
+  if (error) {
+    return (
+      <div className="page atlas">
+        <div className="axp-main axp-loading">
+          <p>岗位地图数据加载失败，请重试。</p>
+          <button className="btn btn-secondary" type="button" onClick={retry}>重试</button>
+        </div>
+      </div>
+    )
   }
 
   if (!ready || !industry) {
@@ -125,12 +148,14 @@ export function AtlasScreen() {
               icon: INDUSTRY_ICONS[i.id],
             }))}
           />
-          <GridSelect
-            value={track}
-            onChange={setTrack}
-            icon={<Layers size={15} />}
-            options={trackOptions.map((o) => ({ value: o.value, label: o.label }))}
-          />
+          {trackOptions.length > 0 && (
+            <GridSelect
+              value={selectedTrack?.id ?? trackOptions[0].value}
+              onChange={setTrack}
+              icon={<Layers size={15} />}
+              options={trackOptions.map((o) => ({ value: o.value, label: o.label }))}
+            />
+          )}
 
           <span className="grow" />
           <div className="seg axp-viewtoggle">
@@ -159,8 +184,8 @@ export function AtlasScreen() {
         ) : view === 'catalog' ? (
           <>
             <p className="axp-gistline">{industry.gist[lang]}</p>
-            {industry.families.map((fam: any) => {
-              const roles = industry.roles.filter((r: any) => r.familyId === fam.id)
+            {(industry.families as any[] ?? []).map((fam: any) => {
+              const roles = (industry.roles as any[] ?? []).filter((r: any) => r.familyId === fam.id)
               if (!roles.length) return null
               return (
                 <section className="axp-fam" key={fam.id}>
@@ -181,6 +206,7 @@ export function AtlasScreen() {
         ) : (
           <FlowMapView
             industryId={industryId}
+            mapId={mapId}
             selectedRoleId={selectedRoleId}
             onSelectRole={handleSelectRole}
             onBack={() => setView('catalog')}
@@ -192,6 +218,7 @@ export function AtlasScreen() {
         <IntelPanel
           roleId={selectedRoleId}
           industryId={industryId}
+          mapId={mapId ?? industryId}
           onSelectRole={handleSelectRole}
           onClose={() => setSelectedRoleId(null)}
         />

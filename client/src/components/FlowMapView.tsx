@@ -2,20 +2,22 @@ import { useMemo, useState } from 'react'
 import { useI18n } from '../i18n/I18n'
 import { PixelAvatar } from './PixelAvatar'
 import { useLazyData } from '../lib/lazyData'
+import { resolveFlowMapId } from '../lib/atlasData'
 
 // 8 环节圆形布局角度（从顶部开始顺时针）
 const SLOT_ANGLES = [-90, -45, 0, 45, 90, 135, 180, -135]
 
 interface FlowMapViewProps {
   industryId: string
+  mapId?: string
   selectedRoleId: string | null
   onSelectRole: (roleId: string) => void
   onBack?: () => void
 }
 
-export function FlowMapView({ industryId, selectedRoleId, onSelectRole, onBack }: FlowMapViewProps) {
+export function FlowMapView({ industryId, mapId, selectedRoleId, onSelectRole, onBack }: FlowMapViewProps) {
   const { lang } = useI18n()
-  const { data: ds, ready } = useLazyData(['catalog', 'flow-maps', 'flow-node-map'])
+  const { data: ds, ready, error, retry } = useLazyData(['catalog', 'flow-maps', 'flow-node-map'])
   const [zoom, setZoom] = useState(1)
 
   const catalog = ds.catalog as any
@@ -23,8 +25,9 @@ export function FlowMapView({ industryId, selectedRoleId, onSelectRole, onBack }
   const flowMaps = ds['flow-maps'] as any
   const flowNodeMap = ds['flow-node-map'] as any
 
-  const flowMap = ready ? (flowMaps?.[industryId] as any) : undefined
-  const nodeMap = ready ? (flowNodeMap?.[industryId] ?? {}) : {}
+  const resolvedMapId = mapId ?? resolveFlowMapId({ id: industryId }, flowMaps)
+  const flowMap = ready ? (flowMaps?.[resolvedMapId ?? industryId] as any) : undefined
+  const nodeMap = ready ? (flowNodeMap?.[resolvedMapId ?? industryId] ?? flowNodeMap?.[industryId] ?? {}) : {}
 
   // 旧 id -> 新 id 映射
   const oldToNew = useMemo(() => {
@@ -43,6 +46,15 @@ export function FlowMapView({ industryId, selectedRoleId, onSelectRole, onBack }
     }
     return map
   }, [nodeMap])
+
+  if (error) {
+    return (
+      <div className="axp-flow-empty">
+        <p>运转图数据加载失败，请重试。</p>
+        <button className="btn btn-secondary" type="button" onClick={retry}>重试</button>
+      </div>
+    )
+  }
 
   if (!ready || !flowMap) {
     return <div className="axp-flow-empty">{ready ? '该行业暂无运转图' : '数据加载中…'}</div>
