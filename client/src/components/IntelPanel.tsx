@@ -5,6 +5,7 @@ import { useT, useI18n } from '../i18n/I18n'
 import { PixelAvatar } from './PixelAvatar'
 import { Button } from './Button'
 import { useLazyData } from '../lib/lazyData'
+import { resolveFlowMapId } from '../lib/atlasData'
 
 // interview-focus 的行业分组映射
 const INTERVIEW_GROUP: Record<string, string> = {
@@ -15,15 +16,16 @@ const INTERVIEW_GROUP: Record<string, string> = {
 interface IntelPanelProps {
   roleId: string
   industryId: string
+  mapId?: string
   onSelectRole: (roleId: string) => void
   onClose: () => void
 }
 
-export function IntelPanel({ roleId, industryId, onSelectRole, onClose }: IntelPanelProps) {
+export function IntelPanel({ roleId, industryId, mapId, onSelectRole, onClose }: IntelPanelProps) {
   const t = useT()
   const { lang } = useI18n()
   const navigate = useNavigate()
-  const { data: ds, ready } = useLazyData(['catalog', 'flow-maps', 'flow-node-map', 'interview-focus', 'level-focus'])
+  const { data: ds, ready, error, retry } = useLazyData(['catalog', 'flow-maps', 'flow-node-map', 'interview-focus', 'level-focus'])
   const [generating, setGenerating] = useState(false)
   const [planGenerated, setPlanGenerated] = useState(false)
 
@@ -35,8 +37,9 @@ export function IntelPanel({ roleId, industryId, onSelectRole, onClose }: IntelP
   const levelFocus = ds['level-focus'] as any
 
   const role = useMemo(() => ALL_ROLES.find((r: any) => r.id === roleId), [ALL_ROLES, roleId])
-  const flowMap = ready ? (flowMaps?.[industryId] as any) : undefined
-  const nodeMap = ready ? (flowNodeMap?.[industryId] ?? {}) : {}
+  const resolvedMapId = mapId ?? resolveFlowMapId({ id: industryId }, flowMaps)
+  const flowMap = ready ? (flowMaps?.[resolvedMapId ?? industryId] as any) : undefined
+  const nodeMap = ready ? (flowNodeMap?.[resolvedMapId ?? industryId] ?? flowNodeMap?.[industryId] ?? {}) : {}
 
   // 旧 id <-> 新 id 映射
   const oldToNew = useMemo(() => {
@@ -103,6 +106,17 @@ export function IntelPanel({ roleId, industryId, onSelectRole, onClose }: IntelP
       .filter((m: any) => oldToNew[m.to] === roleId || oldToNew[m.from] === roleId)
       .map((m: any) => ({ ...m, from: oldToNew[m.from] ?? m.from, to: oldToNew[m.to] ?? m.to }))
   }, [flowMap, roleId, oldToNew])
+
+  if (error) {
+    return (
+      <aside className="axp-intel-panel">
+        <div className="axp-intel-body">
+          <p>岗位情报加载失败，请重试。</p>
+          <button className="btn btn-secondary" type="button" onClick={retry}>重试</button>
+        </div>
+      </aside>
+    )
+  }
 
   if (!ready || !role) return null
 
