@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Target, FileUp, FilePlus2, CopyPlus, ChevronRight, FileText, Briefcase, Languages, Check, X, Sparkles, Loader2 } from 'lucide-react'
 import { useT } from '../i18n/I18n'
 import { Button } from '../components/Button'
 import { generateResume, pollTask } from '../lib/agent'
+import { createResume, getResume, listResumes, type Resume } from '../services/resumes'
 
 // 新建简历的四条路径
 const START_PATHS = [
@@ -62,7 +63,10 @@ export function StudioScreen() {
   const [filter, setFilter] = useState('all')
   const [selectedTpl, setSelectedTpl] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
-  const [myResumes, setMyResumes] = useState<Array<{ id: string; kind: string; name: string; updated: string }>>([])
+  const [myResumes, setMyResumes] = useState<Resume[]>([])
+  const [loadingResumes, setLoadingResumes] = useState(true)
+  const [openedResume, setOpenedResume] = useState<Resume | null>(null)
+  const [openError, setOpenError] = useState<string | null>(null)
   const [aiRole, setAiRole] = useState('')
   const [aiJd, setAiJd] = useState('')
   const [aiStatus, setAiStatus] = useState<'idle' | 'running' | 'done' | 'failed'>('idle')
@@ -73,7 +77,35 @@ export function StudioScreen() {
     [filter],
   )
 
-  const handleStartPath = (key: string) => {
+  const refreshResumes = async () => {
+    setLoadingResumes(true)
+    try {
+      setMyResumes(await listResumes())
+    } catch (e) {
+      setOpenError(e instanceof Error ? e.message : '简历列表加载失败')
+    } finally {
+      setLoadingResumes(false)
+    }
+  }
+
+  useEffect(() => { void refreshResumes() }, [])
+
+  const handleStartPath = async (key: string) => {
+    if (key === 'studio_start_target') {
+      navigate('/app/pipeline')
+    } else if (key === 'studio_start_import') {
+      alert('请粘贴简历文本，AI 将自动解析并生成结构化简历')
+    } else if (key === 'studio_start_blank') {
+      try {
+        await createResume({ title: '未命名简历', templateId: 'default', content: {} })
+        await refreshResumes()
+        setCreating(true)
+        setTimeout(() => setCreating(false), 1000)
+      } catch (e) {
+        setOpenError(e instanceof Error ? e.message : '创建简历失败')
+      }
+    }
+  }
     if (key === 'studio_start_target') {
       navigate('/app/pipeline')
     } else if (key === 'studio_start_import') {

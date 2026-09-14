@@ -1,18 +1,20 @@
 // AI 路由（阶段 1：规则占位保留；阶段 2 替换为 ai-gateway / Agent runtime）
 import { Router } from 'express'
+import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { id } from '../lib/id.js'
 import { ApiError } from '../middleware/error.js'
 import { validateBody } from '../middleware/validate.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
+import { requireAuth } from '../middleware/requireAuth.js'
 import { listOpportunities } from '../services/opportunities.js'
 
 const router = Router()
 
 const agentSchema = z.object({ message: z.string().max(20000).optional().default('') })
 
-// 助手对话：本地规则回复
-router.post('/agent', validateBody(agentSchema), (req, res) => {
+// 助手对话：本地规则回复（旧接口，需登录）
+router.post('/agent', requireAuth, validateBody(agentSchema), (req, res) => {
   const { message } = req.body
   const text = String(message || '')
   let reply =
@@ -37,23 +39,22 @@ router.post('/mock', validateBody(mockSchema), asyncHandler(async (req, res) => 
 
 const answerSchema = z.object({ question: z.string().max(20000).optional().default('') })
 
-// 生成建议回答（实时助手 / 模拟面试）
-router.post('/answer', validateBody(answerSchema), (req, res) => {
-  const { question } = req.body
-  res.json({
-    data: {
-      answer: `针对问题「${question || ''}」，建议用 STAR 结构回答：先交代背景与目标，再说明你的具体行动，最后用可量化的结果收尾，并回扣岗位要求。`,
-    },
-  })
+// 生成建议回答（旧接口占位，需登录；真实能力请使用 /api/agent/chat）
+router.post('/answer', requireAuth, validateBody(answerSchema), (_req, res) => {
+  res.status(501).json({ error: { code: 'NOT_IMPLEMENTED', message: '该旧接口尚未启用，请使用 /api/agent/chat' } })
 })
 
-// 通用生成占位
-router.post('/gen', (_req, res) => res.json({ data: { ok: true, text: '' } }))
-router.post('/transcribe', (_req, res) => res.json({ data: { text: '', segments: [] } }))
-router.post('/vision', (_req, res) => res.json({ data: { ok: true } }))
-router.post('/resume-vision', (_req, res) => res.json({ data: { ok: true } }))
+// 旧能力占位：明确返回未实现，避免被误认为成功。
+function notImplemented(_req: Request, res: Response): void {
+  res.status(501).json({ error: { code: 'NOT_IMPLEMENTED', message: '该接口尚未启用' } })
+}
 
-// 推荐 / 学分等
-router.get('/referral', (_req, res) => res.json({ data: { code: null } }))
+router.post('/gen', requireAuth, notImplemented)
+router.post('/transcribe', requireAuth, notImplemented)
+router.post('/vision', requireAuth, notImplemented)
+router.post('/resume-vision', requireAuth, notImplemented)
+
+// 推荐 / 学分等旧接口未启用，且不向未登录用户暴露。
+router.get('/referral', requireAuth, notImplemented)
 
 export default router
