@@ -6,6 +6,7 @@ import { Button } from '../components/Button'
 import { Select } from '../components/Select'
 import { EmptyState } from '../components/EmptyState'
 import { api } from '../lib/api'
+import { storyPayload, unwrapStories } from '../lib/stories'
 import type { StoryEntry } from '../lib/types'
 
 const SORT_OPTIONS = [
@@ -21,6 +22,7 @@ export function StoriesScreen() {
   const [loaded, setLoaded] = useState(false)
   const [sortBy, setSortBy] = useState('recent')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editBullets, setEditBullets] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newOrg, setNewOrg] = useState('')
@@ -28,8 +30,8 @@ export function StoriesScreen() {
 
   const load = () =>
     api
-      .get<{ items: StoryEntry[] }>('/api/stories')
-      .then((r) => setStories(r.items ?? []))
+      .get<{ data: { items: StoryEntry[] } }>('/api/stories')
+      .then((r) => setStories(unwrapStories(r)))
       .catch(() => setStories([]))
       .finally(() => setLoaded(true))
 
@@ -44,23 +46,28 @@ export function StoriesScreen() {
     return list
   }, [stories, sortBy])
 
-  const handleAdd = () => {
-    if (!newTitle.trim()) return
-    const newStory: StoryEntry = {
-      id: Date.now().toString(),
-      title: newTitle.trim(),
-      org: newOrg.trim() || undefined,
-      bullets: newBullets.split('\n').filter((b) => b.trim()),
+  const handleAdd = async () => {
+    const payload = storyPayload(newTitle, newOrg, newBullets)
+    if (!payload.title) return
+    try {
+      const response = await api.post<{ data: StoryEntry }>('/api/stories', payload)
+      setStories((prev) => [response.data, ...prev])
+      setNewTitle('')
+      setNewOrg('')
+      setNewBullets('')
+      setShowAdd(false)
+    } catch {
+      // Keep the form open so the user can retry.
     }
-    setStories((prev) => [newStory, ...prev])
-    setNewTitle('')
-    setNewOrg('')
-    setNewBullets('')
-    setShowAdd(false)
   }
 
-  const handleDelete = (id: string) => {
-    setStories((prev) => prev.filter((s) => s.id !== id))
+  const handleDelete = async (id: string) => {
+    try {
+      await api.del(`/api/stories/${id}`)
+      setStories((prev) => prev.filter((s) => s.id !== id))
+    } catch {
+      // Keep the story visible when deletion fails.
+    }
   }
 
   return (
@@ -138,7 +145,13 @@ export function StoriesScreen() {
                   {s.org && <span className="faint"> · {s.org}</span>}
                 </div>
                 <div className="story-card-actions">
-                  <button className="iconbtn" onClick={() => setEditingId(editingId === s.id ? null : s.id)}>
+                  <button
+                    className="iconbtn"
+                    onClick={() => {
+                      setEditingId(editingId === s.id ? null : s.id)
+                      setEditBullets(s.bullets?.join('\n') ?? '')
+                    }}
+                  >
                     <Edit3 size={13} />
                   </button>
                   <button className="iconbtn" onClick={() => handleDelete(s.id)}>
@@ -150,7 +163,8 @@ export function StoriesScreen() {
                 <div className="story-edit">
                   <textarea
                     className="story-edit-textarea"
-                    defaultValue={s.bullets?.join('\n') ?? ''}
+                    value={editBullets}
+                    onChange={(e) => setEditBullets(e.target.value)}
                     rows={4}
                   />
                   <div className="story-edit-actions">

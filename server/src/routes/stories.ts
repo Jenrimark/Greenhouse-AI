@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { requireAuth } from '../middleware/requireAuth.js'
 import { param, validateBody } from '../middleware/validate.js'
 import { asyncHandler } from '../middleware/asyncHandler.js'
-import { createStory, deleteStory, listStories } from '../services/stories.js'
+import { createStory, deleteStory, listStories, updateStory } from '../services/stories.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -24,6 +24,12 @@ const createSchema = z.object({
 
 router.post('/', validateBody(createSchema), asyncHandler(async (req, res) => {
   res.status(201).json({ data: await createStory(req.user!.id, req.body) })
+}))
+
+const patchSchema = createSchema.partial()
+
+router.patch('/:id', validateBody(patchSchema), asyncHandler(async (req, res) => {
+  res.json({ data: await updateStory(req.user!.id, param(req, 'id'), req.body) })
 }))
 
 router.delete('/:id', asyncHandler(async (req, res) => {
