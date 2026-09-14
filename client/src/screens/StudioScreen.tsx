@@ -106,36 +106,27 @@ export function StudioScreen() {
       }
     }
   }
-    if (key === 'studio_start_target') {
-      navigate('/app/pipeline')
-    } else if (key === 'studio_start_import') {
-      alert('请粘贴简历文本，AI 将自动解析并生成结构化简历')
-    } else if (key === 'studio_start_blank') {
-      const newId = Date.now().toString()
-      setMyResumes((prev) => [...prev, {
-        id: newId,
-        kind: 'studio_home_base_kind',
-        name: '未命名简历',
-        updated: '刚刚',
-      }])
-      setCreating(true)
-      setTimeout(() => setCreating(false), 1000)
-    }
-  }
-
   const handleTemplateClick = (tpl: typeof TEMPLATES[0]) => {
     setSelectedTpl(selectedTpl === tpl.id ? null : tpl.id)
   }
 
-  const useTemplate = (tpl: typeof TEMPLATES[0]) => {
-    const newId = Date.now().toString()
-    setMyResumes((prev) => [...prev, {
-      id: newId,
-      kind: 'studio_home_base_kind',
-      name: `${tpl.name}模板简历`,
-      updated: '刚刚',
-    }])
-    setSelectedTpl(null)
+  const useTemplate = async (tpl: typeof TEMPLATES[0]) => {
+    try {
+      await createResume({ title: `${tpl.name}模板简历`, templateId: tpl.id, content: {} })
+      await refreshResumes()
+      setSelectedTpl(null)
+    } catch (e) {
+      setOpenError(e instanceof Error ? e.message : '创建模板简历失败')
+    }
+  }
+
+  const openResume = async (resume: Resume) => {
+    setOpenError(null)
+    try {
+      setOpenedResume(await getResume(resume.id))
+    } catch (e) {
+      setOpenError(e instanceof Error ? e.message : '简历详情加载失败')
+    }
   }
 
   // AI 生成简历：入队 → 异步任务轮询 → 产物回填
@@ -150,14 +141,7 @@ export function StudioScreen() {
         if (t.status === 'failed') setAiError(t.error ?? '生成失败')
       })
       if (task.status === 'done') {
-        const resumeId = task.output?.resumeId ?? Date.now().toString()
-        const title = task.output?.title ?? `${role}·AI 简历`
-        setMyResumes((prev) => [{
-          id: resumeId,
-          kind: 'studio_home_target',
-          name: title,
-          updated: '刚刚',
-        }, ...prev])
+        await refreshResumes()
         setAiStatus('done')
       } else {
         setAiStatus('failed')
@@ -244,7 +228,7 @@ export function StudioScreen() {
         </div>
         <div className="rshome-grid rshome-grid-3">
           {myResumes.length > 0 ? myResumes.map((r, i) => (
-            <div className="rshome-card" key={r.id} onClick={() => alert(`打开简历：${r.name}`)}>
+            <div className="rshome-card" key={r.id} onClick={() => void openResume(r)}>
               <div className="rshome-card-paper">
                 <MiniPaper variant={i % 6} />
               </div>

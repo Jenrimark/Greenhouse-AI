@@ -16,7 +16,7 @@ services:
       timeout: 3s
       retries: 20
     ports:
-      - "${PG_PORT:-5433}:5432" # 仅本地联调（默认 5433 避免与本机 PG 冲突）；生产请勿暴露公网
+      - "${PG_PORT:-5433}:5432"
 
   redis:
     image: redis:7-alpine
@@ -29,7 +29,7 @@ services:
       timeout: 3s
       retries: 20
     ports:
-      - "${REDIS_PORT:-6380}:6379" # 仅本地联调（默认 6380 避免与本机 Redis 冲突）
+      - "${REDIS_PORT:-6380}:6379"
 
   api:
     build:
@@ -37,7 +37,6 @@ services:
       dockerfile: server/Dockerfile
     env_file: .env
     environment:
-      # Container defaults are overridable by .env or the shell environment.
       DATABASE_URL: "${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/greenhouse}"
       REDIS_URL: "${REDIS_URL:-redis://redis:6379}"
       NODE_ENV: "${NODE_ENV:-production}"
@@ -76,7 +75,6 @@ services:
       dockerfile: client/Dockerfile
     ports:
       - "80:80"
-      # 生产 HTTPS：443:443 并挂载证书
     depends_on:
       api:
         condition: service_healthy
