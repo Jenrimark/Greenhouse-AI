@@ -13,12 +13,18 @@
 - [ ] 修复经历库 API 响应解包和 CRUD 持久化。
 - [ ] 修复简历工作室列表、创建、详情打开和编辑持久化。
 - [ ] 收紧旧 AI 占位路由，避免公开返回假结果；保留明确的演示接口标识。
-- [ ] 修复生产配置中的脱敏数据库 URL、Cookie 默认值和 Compose 健康依赖。
+- [x] 修复生产配置中的脱敏数据库 URL、Cookie 默认值和 Compose 健康依赖。
 - [ ] 增加统一验收脚本入口与环境自检，避免把数据库不可用误报为功能通过。
 - [ ] 更新中文交付报告：功能矩阵、测试证据、部署步骤、风险和未实现项。
 - [ ] 运行构建、类型检查、可运行测试与配置检查；每个稳定阶段提交 Git。
 
-## 验收原则
+## 本次部署配置说明
+
+- `docker-compose.yml` 使用 `${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/greenhouse}` 作为容器内默认数据库连接串，并保留 `.env`/shell 覆盖能力；Redis 与 `NODE_ENV` 同样采用可覆盖默认值。
+- Compose 不再强制设置 `COOKIE_SECURE=false`。生产环境应在 `.env` 中明确设置 `COOKIE_SECURE=true`；应用配置默认也为安全值。
+- `api`、`worker` 和 `nginx` 使用健康检查依赖，避免在 PostgreSQL、Redis 或 API 尚未就绪时启动下游服务。
+- 根目录 `npm test` 串联 `server` 的 `test:agent` 与 `test:security`。运行结果须结合实际数据库/Redis 可达性记录，不将依赖不可用误报为通过。
+
 
 - 任何本地 React state、规则模板或定时器都不宣称为真实服务能力。
 - 依赖数据库、Redis 或模型供应商的验收必须记录实际环境和结果。
