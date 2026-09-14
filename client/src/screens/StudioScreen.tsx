@@ -4,7 +4,7 @@ import { Target, FileUp, FilePlus2, CopyPlus, ChevronRight, FileText, Briefcase,
 import { useT } from '../i18n/I18n'
 import { Button } from '../components/Button'
 import { generateResume, pollTask } from '../lib/agent'
-import { createResume, getResume, listResumes, type Resume } from '../services/resumes'
+import { createResume, getResume, listResumes, updateResume, type Resume } from '../services/resumes'
 
 // 新建简历的四条路径
 const START_PATHS = [
@@ -62,10 +62,11 @@ export function StudioScreen() {
   const navigate = useNavigate()
   const [filter, setFilter] = useState('all')
   const [selectedTpl, setSelectedTpl] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
   const [myResumes, setMyResumes] = useState<Resume[]>([])
   const [loadingResumes, setLoadingResumes] = useState(true)
   const [openedResume, setOpenedResume] = useState<Resume | null>(null)
+  const [editorContent, setEditorContent] = useState('')
+  const [savingResume, setSavingResume] = useState(false)
   const [openError, setOpenError] = useState<string | null>(null)
   const [aiRole, setAiRole] = useState('')
   const [aiJd, setAiJd] = useState('')
@@ -99,8 +100,6 @@ export function StudioScreen() {
       try {
         await createResume({ title: '未命名简历', templateId: 'default', content: {} })
         await refreshResumes()
-        setCreating(true)
-        setTimeout(() => setCreating(false), 1000)
       } catch (e) {
         setOpenError(e instanceof Error ? e.message : '创建简历失败')
       }
@@ -123,9 +122,28 @@ export function StudioScreen() {
   const openResume = async (resume: Resume) => {
     setOpenError(null)
     try {
-      setOpenedResume(await getResume(resume.id))
+      const detail = await getResume(resume.id)
+      setOpenedResume(detail)
+      setEditorContent(JSON.stringify(detail.content, null, 2))
     } catch (e) {
       setOpenError(e instanceof Error ? e.message : '简历详情加载失败')
+    }
+  }
+
+  const saveOpenedResume = async () => {
+    if (!openedResume || savingResume) return
+    try {
+      const content = JSON.parse(editorContent) as Record<string, unknown>
+      setSavingResume(true)
+      const saved = await updateResume(openedResume.id, { content })
+      setOpenedResume(saved)
+      setEditorContent(JSON.stringify(saved.content, null, 2))
+      setOpenError(null)
+      await refreshResumes()
+    } catch (e) {
+      setOpenError(e instanceof Error ? e.message : '保存简历失败')
+    } finally {
+      setSavingResume(false)
     }
   }
 
@@ -226,8 +244,36 @@ export function StudioScreen() {
           <h2 className="rshome-section-t">{t('studio_home_library')}</h2>
           <span className="faint rshome-section-note">{t('studio_home_note')}</span>
         </div>
+        {openError && <div className="rshome-ai-gen-state is-err" role="alert">{openError}</div>}
+        {openedResume && (
+          <div className="rshome-ai-gen" aria-label="简历编辑状态">
+            <div className="rshome-section-head">
+              <h3 className="rshome-section-t">正在编辑：{openedResume.title}</h3>
+              <Button variant="ghost" size="sm" onClick={() => setOpenedResume(null)}>关闭</Button>
+            </div>
+            <textarea
+              className="rshome-ai-gen-input rshome-ai-gen-jd"
+              value={editorContent}
+              onChange={(e) => {
+                setEditorContent(e.target.value)
+                setOpenError(null)
+              }}
+              rows={10}
+              aria-label="简历内容"
+            />
+            <div className="rshome-ai-gen-bar">
+              <span className="faint rshome-section-note">可编辑结构化简历内容（JSON）</span>
+              <span className="grow" />
+              <Button variant="primary" size="sm" onClick={() => void saveOpenedResume()} disabled={savingResume}>
+                {savingResume ? '保存中…' : '保存修改'}
+              </Button>
+            </div>
+          </div>
+        )}
         <div className="rshome-grid rshome-grid-3">
-          {myResumes.length > 0 ? myResumes.map((r, i) => (
+          {loadingResumes ? (
+            <div className="rshome-ai-gen-state"><Loader2 size={14} className="spin" /> 正在加载简历…</div>
+          ) : myResumes.length > 0 ? myResumes.map((r, i) => (
             <div className="rshome-card" key={r.id} onClick={() => void openResume(r)}>
               <div className="rshome-card-paper">
                 <MiniPaper variant={i % 6} />
@@ -235,9 +281,9 @@ export function StudioScreen() {
               <div className="rshome-card-main">
                 <div className="rshome-card-kind">
                   <FileText size={15} className="rshome-card-kind-ico" />
-                  {r.name}
+                  {r.title}
                 </div>
-                <div className="rshome-card-state faint">更新于 {r.updated}</div>
+                <div className="rshome-card-state faint">更新于 {new Date(r.updatedAt).toLocaleString()}</div>
               </div>
             </div>
           )) : MINE.map((kind, i) => {
