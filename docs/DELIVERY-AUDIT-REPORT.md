@@ -1,8 +1,8 @@
 # Greenhouse 交付核验报告
 
 > 核验日期：2026-09-14  
-> 核验基线：当前分支 `main`，HEAD 为 `62b3b5e`（`docs: add delivery audit execution plan`）  
-> 报告状态：初版，可在后续核验后追加证据；本报告不把未实际执行的项目标记为通过。
+> 核验基线：当前分支 `main`，报告初稿基线为 `62b3b5e`；后续修复见 Git 提交记录。  
+> 报告状态：已更新；本报告不把未实际执行的项目标记为通过。
 
 ## 1. 报告目的与范围
 
@@ -39,8 +39,8 @@
 | 机会管线 `/app/pipeline` | 列表、看板/表格、添加岗位、阶段操作 | 部分 | 后端机会服务按用户持久化的链路存在；本次未在可用 PG 环境完成端到端 CRUD 证据。 |
 | 找岗位 `/app/discover` | 关键词、地点、经验、薪资、远程筛选 | 部分 | 调用 `/api/job-search`；岗位结果是确定性检索/生成，不是外部实时招聘数据。 |
 | 岗位地图 `/app/atlas` | 行业、职能、岗位地图及详情 | 真实（本地数据） | 使用 `catalog.json`、`ladders.json` 按需加载；数据为仓库内静态目录，不代表实时市场数据。 |
-| 简历工作室 `/app/studio` | 模板筛选、空白简历入口、AI 生成入口、任务轮询界面 | 部分 | `client/src/screens/StudioScreen.tsx` 有 Agent 异步生成调用；模板使用和空白创建仍主要更新 React state，点击简历使用 `alert`，列表加载/详情打开尚未形成完整持久化 UI 链路。 |
-| 经历库 `/app/stories` | 列表、排序、新增表单、编辑/删除按钮 | 部分 | 页面加载 `/api/stories`，但新增、编辑、删除当前仅更新本地 state，未调用对应写入 API；这是本轮明确风险。 |
+| 简历工作室 `/app/studio` | 模板筛选、空白简历入口、AI 生成入口、任务轮询界面、服务端列表与详情编辑状态 | 部分 | `client/src/screens/StudioScreen.tsx` 已调用 `/api/resumes` 的列表、创建和详情接口；AI 完成后刷新列表。当前详情编辑器只展示 JSON，保存、导入、导出仍未闭环。 |
+| 经历库 `/app/stories` | 列表、排序、新增、编辑、删除 | 部分 | 已统一 `{ data: { items } }` 解包，并通过 `/api/stories` 持久化新增、编辑和删除；本次仍未在可用 PG 环境完成浏览器刷新验收。 |
 | 模拟面试 `/app/mock` | 岗位选择、风格/模式/题量、逐题作答、评分结果 | 部分 | 首题和点评调用 Agent interview 意图，失败使用内置题库与 75 分兜底；语音输入按钮仅切换录音状态，未接录音/转写服务。 |
 | 实时助手 `/app/live` | 音频来源选择、轮次、转写区、提词器、快捷键展示 | 占位 | `MOCK_TRANSCRIPT` + `setInterval` 模拟转写；第二屏按钮为 `alert`；提词器字体大小/位置选择无实际状态变化；未接 `/api/transcribe`。 |
 | 设置 `/app/settings` | 浅色/深色/系统主题、中文/英文、昵称 | 部分 | 主题和语言偏好写入 `localStorage`；昵称是否持久化依赖 API，本次未完成端到端验收；账号注销/隐私入口需单独验证。 |
@@ -88,15 +88,18 @@
 
 | 命令 | 结果 | 证据 / 结论 |
 |---|---|---|
-| `npm run build` | 失败 | 服务端构建阶段通过；客户端 `tsc -b` 失败：`client/src/lib/stories.test.ts` 引用不存在的 `./stories.js`。 |
-| `npm run typecheck -w server` | 失败 | `server/src/routes/ai.ts:47` 报 `Cannot find namespace 'express'`。 |
+| `npm run build` | 通过 | 服务端 TypeScript 和客户端 TypeScript/Vite 均成功；客户端构建产物已生成。 |
+| `npm run typecheck -w server` | 待复跑 | 本次 build 已通过服务端 `tsc`；需单独复跑并记录独立命令结果。 |
 | `npm run test:agent -w server` | 失败 | 15 个测试中 0 通过、11 失败、4 取消；主要错误为 PostgreSQL `SASL: ... client password must be a string`，测试环境数据库凭据不可用。 |
+| `npm run test:security -w server` | 失败 | 未登录伪造/过期 Cookie 用例通过；其余注册、越权和限流用例因相同 PostgreSQL 认证错误失败。 |
+| `npm run a10:perf -w server` | 失败 | 启动阶段因相同 PostgreSQL SCRAM 密码配置错误退出，未形成性能结论。 |
+| `npm test` | 失败 | 根入口已添加并能执行 server 测试；实际结果受 PostgreSQL 测试环境阻断。 |
 | 代码与文档静态核对 | 完成 | 已读取本报告列出的 README、架构、部署清单、核验计划和 Agent 计划；静态结果不能替代运行时验收。 |
 
 ### 5.2 未执行或未形成证据的项目
 
 - `npm run a1:smoke`、`a2:smoke`、`a4:smoke`、`a5:smoke`、`a6:smoke`、`a9:smoke`。
-- `npm run a10:perf`、独立 `test:security`、生产 Docker 构建与 Compose 健康检查。
+- 生产 Docker 构建与 Compose 健康检查。
 - 真实数据库迁移、备份恢复、Redis 限流、worker 重启恢复、真实供应商降级、Sentry 告警、浏览器 E2E、跨用户权限和会话劫持专项复测。
 - ICP 备案、域名解析、TLS、OSS、RDS、云监控和灰度发布。
 
@@ -104,12 +107,10 @@
 
 ### 6.1 阻断性风险
 
-1. **当前构建不通过。** 客户端测试文件导入缺失模块，无法形成生产前端构建产物。
-2. **服务端类型检查不通过。** `server/src/routes/ai.ts` 的 `express` 命名空间类型错误需要修复或通过正确类型导入解决。
-3. **Agent 测试环境不可用。** PostgreSQL 密码不是字符串，导致认证、工具和子图测试无法运行；不能据此判断功能正确。
-4. **经历库写操作疑似假成功。** 新增、编辑、删除只改变本地 state，刷新后可能丢失，违反核验计划中的持久化要求。
-5. **简历工作室仍非完整 CRUD。** 页面列表未可靠从服务端加载并展示详情；创建/模板使用主要写本地 state，打开动作是 `alert`。
-6. **实时助手仍为模拟功能。** 静态转写和定时器会被误认为实时语音能力，且 `/api/transcribe` 明确返回未实现。
+1. **当前构建已通过。** `npm run build` 在 2026-09-14 重新执行成功。
+2. **Agent 测试环境不可用。** PostgreSQL 密码不是字符串，导致认证、工具和子图测试无法运行；不能据此判断功能正确。
+3. **经历库与简历工作室已补齐主要持久化链路，但尚未完成真实 PG + 浏览器刷新验收。**
+4. **实时助手仍为模拟功能。** 静态转写和定时器会被误认为实时语音能力，且 `/api/transcribe` 明确返回未实现。
 
 ### 6.2 高风险但需环境复核
 
@@ -126,10 +127,10 @@
 | 编号 | 问题 | 修复提交 | 验证命令 / 环境 | 验证结果 | 日期 | 备注 |
 |---|---|---|---|---|---|---|
 | F-001 | 岗位地图加载和地图解析问题 | `35900ce` | 待补充浏览器 / 构建证据 | 未验证 | — | 历史提交已存在，需重新核验。 |
-| F-002 | 经历库 API 解包 / CRUD 持久化 | 待补充 | 待补充 | 未修复或未验证 | — | 当前 UI 仍显示本地 state 写操作。 |
-| F-003 | 简历工作室列表、创建、详情与编辑持久化 | 待补充 | 待补充 | 未修复或未验证 | — | 当前页面存在本地 state 与 `alert`。 |
-| F-004 | 构建与类型检查错误 | 待补充 | `npm run build`；`npm run typecheck -w server` | 未修复 | 2026-09-14 | 本报告不修改代码。 |
-| F-005 | 生产配置、Cookie、Compose 健康依赖 | 待补充 | Compose + `/api/health/deps` | 未验证 | — | 需真实环境证据。 |
+| F-002 | 经历库 API 解包 / CRUD 持久化 | `341669b` | `npm run build -w client`；`npm run typecheck -w server` | 构建和类型检查通过；真实 PG 刷新未验证 | 2026-09-14 | 已接入 POST/PATCH/DELETE，失败不更新成功状态。 |
+| F-003 | 简历工作室列表、创建、详情与编辑状态 | `24af24c` | `npm run build -w client` | 构建通过；真实 PG 刷新未验证 | 2026-09-14 | 已接入列表、创建、详情和 JSON 编辑状态；保存/导入/导出未闭环。 |
+| F-004 | 构建与类型检查错误 | `24af24c`、`0c3bad3` | `npm run build` | 通过 | 2026-09-14 | 服务端和客户端构建成功。 |
+| F-005 | 生产配置、Cookie、Compose 健康依赖 | `dba8429` | 静态 Compose 核对 | 部分 | 2026-09-14 | 健康依赖和 Cookie 覆盖已调整；生产凭据、TLS、Docker 运行仍未验证。 |
 
 ## 8. 可执行验收命令
 
