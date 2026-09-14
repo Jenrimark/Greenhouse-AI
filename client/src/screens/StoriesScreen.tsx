@@ -168,7 +168,21 @@ export function StoriesScreen() {
                     rows={4}
                   />
                   <div className="story-edit-actions">
-                    <Button variant="primary" size="sm" onClick={() => setEditingId(null)}>保存</Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const response = await api.patch<{ data: StoryEntry }>(`/api/stories/${s.id}`, {
+                            bullets: editBullets.split('\n').filter((bullet) => bullet.trim()),
+                          })
+                          setStories((prev) => prev.map((story) => story.id === s.id ? response.data : story))
+                          setEditingId(null)
+                        } catch {
+                          // Keep editing state so the user can retry.
+                        }
+                      }}
+                    >保存</Button>
                     <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>取消</Button>
                   </div>
                 </div>

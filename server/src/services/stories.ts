@@ -67,7 +67,7 @@ export async function updateStory(userId: string, storyId: string, patch: Partia
     params.push(key === 'bullets' ? JSON.stringify(value) : value)
     sets.push(`${fieldMap[key]} = $${params.length}`)
   }
-  if (sets.length === 0) throw ApiError.badRequest('没有可更新的字段')
+  if (sets.length === 0) throw ApiError.badRequest('INVALID_STORY_PATCH', '没有可更新的字段')
   params.push(storyId, userId)
   const res = await getPool().query(
     `UPDATE stories SET ${sets.join(', ')} WHERE id = $${params.length - 1} AND user_id = $${params.length}
