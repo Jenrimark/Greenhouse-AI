@@ -1,6 +1,6 @@
 // A5 意图路由：把用户消息分类到 strategy/resume/interview/qa/chat
 // mock：关键词规则版（无 key 可验收）；real：LLM 结构化分类
-import type { AIMessage } from '@langchain/core/messages'
+import { HumanMessage, SystemMessage, type AIMessage } from '@langchain/core/messages'
 import type { AgentState, ChatModelLike } from './state.js'
 
 export type Intent = 'strategy' | 'resume' | 'interview' | 'qa' | 'chat'
@@ -38,10 +38,7 @@ export function createIntentRouter(llm: ChatModelLike) {
   return async (state: AgentState): Promise<Partial<AgentState>> => {
     const lastUser = [...state.messages].reverse().find((m) => m.getType?.() === 'human')
     const text = typeof lastUser?.content === 'string' ? lastUser.content : JSON.stringify(lastUser?.content ?? '')
-    const res = await llm.invoke([
-      { getType: () => 'system', content: ROUTER_SYSTEM } as never,
-      { getType: () => 'human', content: text } as never,
-    ])
+    const res = await llm.invoke([new SystemMessage(ROUTER_SYSTEM), new HumanMessage(text)])
     const raw = typeof res.content === 'string' ? res.content.trim().toLowerCase() : ''
     const intent = (['strategy', 'resume', 'interview', 'qa', 'chat'] as Intent[]).find((i) => raw.includes(i)) ?? 'qa'
     return { intent }

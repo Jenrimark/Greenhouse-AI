@@ -1,7 +1,7 @@
 // A5 四个子工作流：strategy / resume / interview / qa
 // 每个子图可独立编译执行；LLM 由外部注入（mock 或真实 ChatModelClient）
 import { StateGraph, START, END, Annotation } from '@langchain/langgraph'
-import { HumanMessage, AIMessage } from '@langchain/core/messages'
+import { HumanMessage, SystemMessage, AIMessage } from '@langchain/core/messages'
 import { AgentStateAnnotation, type AgentState, type ChatModelLike } from './state.js'
 import { searchJobs } from '../services/jobSearch.js'
 import { createOpportunity } from '../services/opportunities.js'
@@ -106,8 +106,8 @@ export function createResumeSubgraph(llm: ChatModelLike) {
     const lastUser = [...state.messages].reverse().find((m) => m.getType?.() === 'human')
     const text = typeof lastUser?.content === 'string' ? lastUser.content : ''
     const res = await llm.invoke([
-      { getType: () => 'system', content: '你是资深 HR。从用户消息中提取目标岗位的关键要求，用中文输出要点清单。' } as never,
-      { getType: () => 'human', content: text } as never,
+      new SystemMessage('你是资深 HR。从用户消息中提取目标岗位的关键要求，用中文输出要点清单。'),
+      new HumanMessage(text),
     ])
     return { memory: { jdAnalysis: typeof res.content === 'string' ? res.content : '（无 JD 信息）' } }
   }
@@ -177,8 +177,8 @@ export function createInterviewSubgraph(llm: ChatModelLike) {
     const lastUser = [...state.messages].reverse().find((m) => m.getType?.() === 'human')
     const answer = typeof lastUser?.content === 'string' ? lastUser.content : ''
     const res = await llm.invoke([
-      { getType: () => 'system', content: '你是资深面试官。对候选人的回答按 结构/亮点/改进 点评，并给出 0-100 分。' } as never,
-      { getType: () => 'human', content: answer } as never,
+      new SystemMessage('你是资深面试官。对候选人的回答按 结构/亮点/改进 点评，并给出 0-100 分。'),
+      new HumanMessage(answer),
     ])
     const qs = (state.memory.questions ?? SAMPLE_QUESTIONS) as Array<{ q: string; hint?: string }>
     // ask_question 已把 questionIdx 推进到"下一题"索引；上一题 = idx-2
@@ -227,8 +227,8 @@ export function createQaSubgraph(llm: ChatModelLike) {
       `经历数：${stories.length}；简历：${resume ? '已有' : '暂无'}`,
     ].join('\n')
     const res = await llm.invoke([
-      { getType: () => 'system', content: `你是求职领域助手 Greenhouse，基于以下用户上下文回答：\n${ctx}` } as never,
-      { getType: () => 'human', content: question } as never,
+      new SystemMessage(`你是求职领域助手 Greenhouse，基于以下用户上下文回答：\n${ctx}`),
+      new HumanMessage(question),
     ])
     return { messages: [new AIMessage(typeof res.content === 'string' ? res.content : JSON.stringify(res.content))] }
   }
