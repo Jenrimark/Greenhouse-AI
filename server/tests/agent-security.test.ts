@@ -109,21 +109,30 @@ describe('安全测试（HTTP）', () => {
   })
 
   test('限流：每用户 Agent 请求超限 429', async () => {
-    const a = await register(`a10r_${Date.now().toString(36)}@test.com`)
-    let lastStatus = 0
-    for (let i = 0; i < 22; i++) {
-      const r = await api(a, '/api/agent/chat', {
+    // 验证的是固定窗口计数器本身，与 LLM 响应快慢无关；临时清空 AGENT_MODEL
+    // 让 runtime.ts 的 hasRealLlm 判空退回 mock 模式，避免真实供应商单次调用
+    // 数秒的延迟把 20 次请求撑出 60s 限流窗口之外。
+    const savedModel = process.env.AGENT_MODEL
+    process.env.AGENT_MODEL = ''
+    try {
+      const a = await register(`a10r_${Date.now().toString(36)}@test.com`)
+      let lastStatus = 0
+      for (let i = 0; i < 22; i++) {
+        const r = await api(a, '/api/agent/chat', {
+          method: 'POST',
+          body: JSON.stringify({ message: `第 ${i} 次` }),
+        })
+        lastStatus = r.status
+        if (r.status === 429) break
+      }
+      assert.equal(lastStatus, 429, '第 21 次起应 429')
+      const body429 = await api(a, '/api/agent/chat', {
         method: 'POST',
-        body: JSON.stringify({ message: `第 ${i} 次` }),
+        body: JSON.stringify({ message: '继续' }),
       })
-      lastStatus = r.status
-      if (r.status === 429) break
+      assert.equal(body429.status, 429)
+    } finally {
+      if (savedModel !== undefined) process.env.AGENT_MODEL = savedModel
     }
-    assert.equal(lastStatus, 429, '第 21 次起应 429')
-    const body429 = await api(a, '/api/agent/chat', {
-      method: 'POST',
-      body: JSON.stringify({ message: '继续' }),
-    })
-    assert.equal(body429.status, 429)
   })
 })
