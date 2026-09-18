@@ -2,11 +2,13 @@ node_modules/
 dist/
 .DS_Store
 *.log
+*.tsbuildinfo
 server/data/db.json
 server/data/*.bak
 .env
 .env.local
 backup/
+.local-installers/
 
 # 误入仓库的本地安装包
 *.dmg
