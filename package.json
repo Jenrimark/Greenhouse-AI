@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Greenhouse — AI 求职作战系统（React + Vite 前端 / Express 后端）",
   "type": "module",
+  "license": "CC-BY-NC-4.0",
   "workspaces": [
     "client",
     "server"
